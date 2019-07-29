@@ -20,7 +20,7 @@
     ],
     "interface-name": [
       true,
-      "always-prefix"
+      "never-prefix"
     ],
     "jsdoc-format": true,
     "jsx-no-lambda": false,
@@ -69,7 +69,7 @@
     ],
     "quotemark": [
       true,
-      "single",
+      "double",
       "jsx-double"
     ],
     "radix": true,
