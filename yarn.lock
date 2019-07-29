@@ -859,6 +859,11 @@ ajv@^6.1.0, ajv@^6.5.5:
     json-schema-traverse "^0.4.1"
     uri-js "^4.2.2"
 
+ancestors@0.0.3:
+  version "0.0.3"
+  resolved "https://registry.yarnpkg.com/ancestors/-/ancestors-0.0.3.tgz#124eb944447d68b302057047d15d077a9da5179d"
+  integrity sha1-Ek65RER9aLMCBXBH0V0Hep2lF50=
+
 ansi-colors@3.2.3:
   version "3.2.3"
   resolved "https://registry.yarnpkg.com/ansi-colors/-/ansi-colors-3.2.3.tgz#57d35b8686e851e2cc04c403f1c00203976a1813"
@@ -2070,6 +2075,14 @@ diffie-hellman@^5.0.0:
     miller-rabin "^4.0.0"
     randombytes "^2.0.0"
 
+dom-seek@^4.0.1:
+  version "4.0.3"
+  resolved "https://registry.yarnpkg.com/dom-seek/-/dom-seek-4.0.3.tgz#f14dddf04b3fb062d901c7b00b0c142a06e0a94b"
+  integrity sha1-8U3d8Es/sGLZAcewCwwUKgbgqUs=
+  dependencies:
+    ancestors "0.0.3"
+    index-of "^0.2.0"
+
 domain-browser@^1.1.1:
   version "1.2.0"
   resolved "https://registry.yarnpkg.com/domain-browser/-/domain-browser-1.2.0.tgz#3d31f50191a6749dd1375a7f522e823d42e54eda"
@@ -2529,6 +2542,11 @@ get-caller-file@^2.0.1:
   resolved "https://registry.yarnpkg.com/get-caller-file/-/get-caller-file-2.0.5.tgz#4f94412a82db32f36e3b0b9741f8a97feb031f7e"
   integrity sha512-DyFP3BM/3YHTQOCUL/w0OZHR0lpKeGrxotcHWcqNEdnltqFwXVfhEBQ94eIo34AfQpo0rGki4cyIiftY06h2Fg==
 
+get-document@^1.0.0:
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/get-document/-/get-document-1.0.0.tgz#4821bce66f1c24cb0331602be6cb6b12c4f01c4b"
+  integrity sha1-SCG85m8cJMsDMWAr5strEsTwHEs=
+
 get-func-name@^2.0.0:
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/get-func-name/-/get-func-name-2.0.0.tgz#ead774abee72e20409433a066366023dd6887a41"
@@ -2856,6 +2874,11 @@ imurmurhash@^0.1.4:
   version "0.1.4"
   resolved "https://registry.yarnpkg.com/imurmurhash/-/imurmurhash-0.1.4.tgz#9218b9b2b928a238b13dc4fb6b6d576f231453ea"
   integrity sha1-khi5srkoojixPcT7a21XbyMUU+o=
+
+index-of@^0.2.0:
+  version "0.2.0"
+  resolved "https://registry.yarnpkg.com/index-of/-/index-of-0.2.0.tgz#38c1e2367ea55dffad3b6eb592ec1cc3090d7d65"
+  integrity sha1-OMHiNn6lXf+tO261kuwcwwkNfWU=
 
 inflight@^1.0.4:
   version "1.0.6"
@@ -4780,6 +4803,13 @@ signal-exit@^3.0.0, signal-exit@^3.0.2:
   resolved "https://registry.yarnpkg.com/signal-exit/-/signal-exit-3.0.2.tgz#b5fdc08f1287ea1178628e415e25132b73646c6d"
   integrity sha1-tf3AjxKH6hF4Yo5BXiUTK3NkbG0=
 
+simple-xpath-position@^2.0.0:
+  version "2.0.2"
+  resolved "https://registry.yarnpkg.com/simple-xpath-position/-/simple-xpath-position-2.0.2.tgz#aee2a80d9d25c31f7f4d493ccddfaaf4eed5684d"
+  integrity sha1-ruKoDZ0lwx9/TUk8zd+q9O7VaE0=
+  dependencies:
+    get-document "^1.0.0"
+
 slash@^1.0.0:
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/slash/-/slash-1.0.0.tgz#c41f2f6c39fc16d1cd17ad4b5d896114ae470d55"
@@ -5773,6 +5803,15 @@ write-file-atomic@^3.0.0:
     is-typedarray "^1.0.0"
     signal-exit "^3.0.2"
     typedarray-to-buffer "^3.1.5"
+
+xpath-range@^1.1.1:
+  version "1.1.1"
+  resolved "https://registry.yarnpkg.com/xpath-range/-/xpath-range-1.1.1.tgz#4f9515768d51db45496d5161c9eb1a268faa1171"
+  integrity sha1-T5UVdo1R20VJbVFhyesaJo+qEXE=
+  dependencies:
+    dom-seek "^4.0.1"
+    get-document "^1.0.0"
+    simple-xpath-position "^2.0.0"
 
 xtend@^4.0.0, xtend@~4.0.1:
   version "4.0.2"
