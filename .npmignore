@@ -1,0 +1,11 @@
+docs/
+node_modules/
+src/
+.babelrc
+.gitignore
+package-lock.json
+yarn.lock
+webpack.config.js
+tslint.json
+tsconfig.js
+README.md
