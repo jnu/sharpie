@@ -24,8 +24,8 @@ export interface Attributed {
 
 export interface Redaction extends Extent, Attributed {
   type: "redaction";
-  extentDelta: number;
-  content: string;
+  content?: string;
+  extent?: number;
 }
 
 export interface Highlight extends Extent, Attributed {

@@ -1,5 +1,6 @@
-import {Annotation, Markup, StyleAttributes} from "./annotation";
+import {Annotation, Markup, Redaction, StyleAttributes} from "./annotation";
 import {defaults, _debug, sortedInsert} from "./util";
+import {IDAllocator} from "./id_allocator";
 
 interface RenderOpts {
   autoParagraph?: boolean;
@@ -96,20 +97,25 @@ function getTagName(annotation: Annotation, defaultTag: string = "span") {
 /**
  * Generate opening tag string for the annotation.
  */
-function openTag(annotation: Annotation, defaultTag?: string): string {
+function openTag(annotation: Annotation, annotationId?: string, defaultTag?: string): string {
   const tagName = getTagName(annotation, defaultTag);
   const attrs: Array<[string, string]> = [];
   if (annotation.format) {
     attrs.push(["style", createStyleString(annotation.format)]);
   }
-  if (annotation.meta) {
-    if (annotation.meta.id) {
-      attrs.push(["id", annotation.meta.id]);
-    }
-    if (annotation.meta.htmlClassName) {
-      attrs.push(["class", annotation.meta.htmlClassName]);
-    }
+
+  if (annotation.meta && annotation.meta.id) {
+    attrs.push(["id", annotation.meta.id]);
   }
+
+  const cls = ["sharpie-annotation"];
+  if (annotationId) {
+    cls.push(`sharpie-id-${annotationId}`);
+  }
+  if (annotation.meta && annotation.meta.htmlClassName) {
+    cls.push(annotation.meta.htmlClassName);
+  }
+  attrs.push(["class", cls.join(" ")]);
 
   const attrString = attrs.map(([k, v]) => `${k}="${v}"`).join(" ");
   return `<${tagName}${attrString ? " " + attrString : ""}>`;
@@ -134,6 +140,7 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
     annotations = [...annotations, ...inferParagraphBreaks(text)];
   }
 
+  const ids = new IDAllocator<Annotation>();
   // Queue for annotations to apply
   const sorted = annotations.sort(sortAnnotations);
   // Stack of annotations that have been opened
@@ -144,6 +151,8 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
   const endOrderStack: Annotation[] = [];
   // Stack of overlapping tags that need to be reopened.
   const reopen: Annotation[] = [];
+  // Stack of redaction annotations that are currently being applied.
+  const redactionStack: Redaction[] = [];
 
   let output = "";
 
@@ -168,7 +177,7 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
     // overlapping tags that need reopening are processed here.
     while (sorted.length > 0 && sorted[0].start === pointer) {
       const atn = sorted.shift();
-      output += openTag(atn);
+      output += openTag(atn, ids.getId(atn));
       sortedInsert(endOrderStack, atn, a => a.end);
       openOrderStack.unshift(atn);
     }
@@ -176,13 +185,14 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
     // Reopen overlapping tags
     while (reopen.length > 0) {
       const atn = reopen.shift();
-      output += openTag(atn);
+      output += openTag(atn, ids.getId(atn));
       openOrderStack.unshift(atn);
       // NB: Don't add the tag to the end order stack because it was never
       // popped from there.
     }
 
-    // Write the character at this position
+    // Write the character at this position, or the redaction that should
+    // replace the character.
     output += text[pointer] || "";
   }
 
