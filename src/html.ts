@@ -41,18 +41,23 @@ const STYLE_TO_CSS = {
   "color": "color",
   "bgColor": "background-color",
   "opacity": "opacity",
+  "whiteSpace": "white-space",
+  "wordBreak": "word-break",
 };
 
 /**
  * Convert the Sharpie format options to CSS.
+ *
+ * The input object should include standard StyleAttributes keys, but any
+ * additional keys will be treated as literal CSS keys.
  */
 function createStyleString(style: StyleAttributes) {
   const styles = Object.keys(style).map((key: keyof StyleAttributes) => {
     const value = style[key];
-    const cssKey = STYLE_TO_CSS[key];
-    if (!cssKey) {
-      throw new Error(`Unknown style ${key}`);
+    if (!STYLE_TO_CSS.hasOwnProperty(key)) {
+      _debug("Unknown style key", key);
     }
+    const cssKey = STYLE_TO_CSS[key] || key;
     return `${cssKey}: ${value}`;
   });
 
@@ -100,15 +105,23 @@ function getTagName(annotation: Annotation, defaultTag: string = "span") {
  * A default object is defined for each type, which the annotation itself may
  * override when it is defined.
  */
-function getFormatObject(annotation: Annotation): StyleAttributes | undefined {
+function getFormatObject(annotation: Annotation): Object | undefined {
   const overrides = annotation.format;
   switch (annotation.type) {
     case "markup":
       return overrides;
     case "redaction":
-      return defaults(overrides, {
+      const fmt = defaults(overrides, {
         bgColor: "black",
         color: "white",
+      });
+      return {...fmt,
+        "white-space": "pre-wrap",
+        "word-break": "break-word",
+      };
+    case "highlight":
+      return defaults(overrides, {
+        bgColor: "#fffa129c",
       });
     default:
       return undefined;
@@ -118,8 +131,8 @@ function getFormatObject(annotation: Annotation): StyleAttributes | undefined {
 /**
  * Generate opening tag string for the annotation.
  */
-function openTag(annotation: Annotation, annotationId?: string, defaultTag?: string): string {
-  const tagName = getTagName(annotation, defaultTag);
+function openTag(annotation: Annotation, annotationId: string, position: number, warp: number): string {
+  const tagName = getTagName(annotation);
   const attrs: Array<[string, string]> = [];
 
   // Inline styles
@@ -144,8 +157,8 @@ function openTag(annotation: Annotation, annotationId?: string, defaultTag?: str
   attrs.push(["class", cls.join(" ")]);
 
   // Data attributes
-  attrs.push(["data-sharpie-start", `${annotation.start}`]);
-  attrs.push(["data-sharpie-end", `${annotation.end}`]);
+  attrs.push(["data-sharpie-position", `${position}`]);
+  attrs.push(["data-sharpie-warp", `${warp}`]);
 
   const attrString = attrs.map(([k, v]) => `${k}="${v}"`).join(" ");
   return `<${tagName}${attrString ? " " + attrString : ""}>`;
@@ -170,8 +183,9 @@ function closeTag(annotation: Annotation, defaultTag?: string): string {
  *
  * 1) If text is greater than the designated width, it is returned directly.
  * 2) The padding character is treated as a single character regardless of
- *    its literal string length in JavaScript. (This is so that HTML markup
- *    can be passed.)
+ *    its literal string length in JavaScript. This is so that HTML markup
+ *    can be passed; the screen representation should still be a single
+ *    character of text regardless.
  */
 function createPaddedOutputBuffer(text: string | undefined, width: number, paddingChar: string) {
   text = text || "";
@@ -212,6 +226,7 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
   }
 
   const ids = new IDAllocator<Annotation>();
+  const warpMap = new WeakMap<Annotation, number>();
   // Queue for annotations to apply
   const sorted = annotations.sort(sortAnnotations);
   // Stack of annotations that have been opened
@@ -254,32 +269,43 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
     // overlapping tags that need reopening are processed here.
     while (sorted.length > 0 && sorted[0].start === pointer) {
       const atn = sorted.shift();
-      output += openTag(atn, ids.getId(atn));
       sortedInsert(endOrderStack, atn, a => a.end);
       openOrderStack.unshift(atn);
+      // Warp represents the number of characters in the real text are
+      // represented by one character of output text in this range. It's added
+      // so libraries operating on annotated text can compute positions
+      // correctly despite annotation that may have altered the surface text.
+      let warp = 1;
       // Store this redaction if not currently redacting, or if this one goes
       // longer. The last / longest redaction takes precedence on overlaps.
       if (atn.type === "redaction") {
-        const space = "<span style=\"width: 0.8em; display: inline-block;\"> </span>";
+        const space = "&nbsp;";
         // Choose the effective redaction width by taking the explicitly
         // defined extent if there is one, or the max of the annotation span
         // and the redaction content length if not.
+        const annotationExtent = atn.end - atn.start;
         const extent = atn.extent ?
           atn.extent :
-          Math.max(atn.end - atn.start, (atn.content || "").length);
+          Math.max(annotationExtent, (atn.content || "").length);
         openRedactions.push({
           redaction: atn,
           output: createPaddedOutputBuffer(atn.content, extent, space),
           extent,
           cursor: 0,
         });
+        // Compute warp factor: redactions can alter screen text length
+        warp = annotationExtent / extent;
       }
+      // Save metadata
+      warpMap.set(atn, warp);
+      // Write open tag
+      output += openTag(atn, ids.getId(atn), pointer, warp);
     }
 
     // Reopen overlapping tags
     while (reopen.length > 0) {
       const atn = reopen.shift();
-      output += openTag(atn, ids.getId(atn));
+      output += openTag(atn, ids.getId(atn), pointer, warpMap.get(atn));
       openOrderStack.unshift(atn);
       // NB: No need to add this annotation to any of the other stacks, since
       // it was only ever popped from open-order.
@@ -306,7 +332,6 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
       // This lets us write redactions with content longer than the span it
       // is technically redacting.
       while (needsWrite && cursor < atn.cursor) {
-        console.log(atn.redaction.content, cursor, atn.cursor, atn.extent)
         output += atn.output[cursor++];
       }
     }

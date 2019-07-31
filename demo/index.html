@@ -181,17 +181,16 @@ fit into the slippers at once.`;
               color: "red",
             },
           },
+          // Test highlights
           {
-            type: "markup",
+            type: "highlight",
             start: 1558,
             end: 1650,
-            meta: {
-              htmlTagName: "span",
-            },
-            format: {
-              bgColor: "yellow",
-              opacity: 0.6,
-            },
+          },
+          {
+            type: "highlight",
+            start: 1640,
+            end: 1720,
           },
           // Test redactions
           {
@@ -216,6 +215,11 @@ fit into the slippers at once.`;
             start: 523,
             end: 524,
             content: "SUPER WIDE REDACTION",
+          },
+          {
+            type: "redaction",
+            start: 2800,
+            end: 3000,
           },
         ]);
 
