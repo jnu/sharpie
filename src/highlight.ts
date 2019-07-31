@@ -49,6 +49,78 @@ function resolveContainer(selection: Selection): HTMLElement | undefined {
 }
 
 /**
+ * Get the most immediate Sharpie parent container.
+ */
+function getSharpieOffsetParent(container: Node) {
+  let el = container.parentElement;
+  const root = el.getRootNode();
+  while (el && el !== root) {
+    if (el.dataset && el.dataset.hasOwnProperty("sharpiePosition")) {
+      return el;
+    }
+    el = el.parentElement;
+  }
+
+  return undefined;
+}
+
+/**
+ * Get the nearest preceding Sharpie element.
+ */
+function getSharpieSibling(container: Node): HTMLElement | undefined {
+  // @ts-ignore
+  let el = container.previousElementSibling;
+  while (el) {
+    // @ts-ignore
+    if (el.dataset && el.dataset.hasOwnProperty("sharpiePosition")) {
+      return el;
+    }
+    el = el.previousElementSibling;
+  }
+  return undefined;
+}
+
+/**
+ * Get the scale factor and offset position of the given node.
+ *
+ * Uses contextual hints from surrounding elements.
+ */
+function getSharpieOffsetMeta(el: Node) {
+  const sharpieContainer = getSharpieOffsetParent(el);
+  const sharpieSibling = getSharpieSibling(el);
+  const rawWarp = sharpieContainer ? sharpieContainer.dataset.sharpieWarp : 1;
+  const rawPos = sharpieSibling ?
+    sharpieSibling.dataset.sharpiePosition :
+    sharpieContainer.dataset.sharpiePosition;
+  let delta = 0;
+  if (sharpieSibling) {
+    const sibRawWarp = sharpieSibling.dataset.sharpieWarp;
+    const sibWarp = sibRawWarp ? +sibRawWarp : 1;
+    const sibLength = sharpieSibling.textContent.length;
+    delta = sibLength * sibWarp;
+  }
+
+  return {
+    warp: rawWarp ? +rawWarp : 1,
+    pos: (+rawPos) + delta,
+  };
+}
+
+/**
+ * Translate the given selection range to positions within the raw text.
+ *
+ * This function takes into account different annotations that may shrink or
+ * stretch the underlying character count in various ways.
+ */
+function getSharpieExtent(range: Range) {
+  const startMeta = getSharpieOffsetMeta(range.startContainer);
+  const endMeta = getSharpieOffsetMeta(range.endContainer);
+  const start = startMeta.warp * range.startOffset + startMeta.pos;
+  const end = endMeta.warp * range.endOffset + endMeta.pos;
+  return [Math.floor(start), Math.ceil(end)];
+}
+
+/**
  * Global event handler that processes selections on mouse events.
  */
 function delegate() {
@@ -65,8 +137,11 @@ function delegate() {
     return;
   }
 
-  _debug(selection, container);
-  _debug(xpr.fromRange(selection.getRangeAt(0), container));
+  for (let i = 0; i < selection.rangeCount; i++) {
+    const range = selection.getRangeAt(i);
+    const extent = getSharpieExtent(range);
+    _debug(range, extent);
+  }
 }
 
 /**
