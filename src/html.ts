@@ -41,8 +41,6 @@ const STYLE_TO_CSS = {
   "color": "color",
   "bgColor": "background-color",
   "opacity": "opacity",
-  "whiteSpace": "white-space",
-  "wordBreak": "word-break",
 };
 
 /**
@@ -261,7 +259,11 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
           break;
         }
         // Reopen any tags that continue beyond this one
-        reopen.unshift(openedAfter);
+        // NOTE: there may be annotations processed at this step that end at
+        // the same position and should not be reopened.
+        if (openedAfter.end > pointer) {
+          reopen.unshift(openedAfter);
+        }
       }
     }
 

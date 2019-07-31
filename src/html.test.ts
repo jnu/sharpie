@@ -60,4 +60,18 @@ stacks of custom annotations and auto-generated</p><p class="sharpie-annotation 
 paragraph annotations.</p>`);
   });
 
+  it("Handles directly overlapping ranges without reopening tags", () => {
+    const atns: Annotation[] = [
+      {start: 0, end: 6, type: "markup", meta: {htmlTagName: "h1"}},
+      {start: 0, end: 6, type: "highlight"},
+    ];
+    const str = `Header
+
+Some other text`;
+    assert.equal(renderToString(str, atns),
+`<p class="sharpie-annotation sharpie-type-markup sharpie-id-0 auto-para-break" data-sharpie-position="0" data-sharpie-warp="1"><span style="background-color: #fffa129c;" class="sharpie-annotation sharpie-type-highlight sharpie-id-1" data-sharpie-position="0" data-sharpie-warp="1"><h1 class="sharpie-annotation sharpie-type-markup sharpie-id-2" data-sharpie-position="0" data-sharpie-warp="1">Header</h1></span></p><p class="sharpie-annotation sharpie-type-markup sharpie-id-3 auto-para-break" data-sharpie-position="6" data-sharpie-warp="1">
+</p><p class="sharpie-annotation sharpie-type-markup sharpie-id-4 auto-para-break" data-sharpie-position="7" data-sharpie-warp="1">
+Some other text</p>`);
+  });
+
 });
