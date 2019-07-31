@@ -350,6 +350,8 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
  * Render annotated text as plain HTML into the given DOM container.
  */
 export function render(container: HTMLElement, text: string, annotations: Annotation[]) {
+  const start = Date.now();
   const html = renderToString(text, annotations);
+  _debug("Rendered in", Date.now() - start, "ms");
   container.innerHTML = html;
 }
