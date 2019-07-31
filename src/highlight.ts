@@ -4,48 +4,48 @@ const xpr = require("xpath-range");
 /**
  * Track container elements where selection events can be handled.
  */
-const watchList = new Set<HTMLElement>();
+const watchList = new Map<HTMLElement, Set<Function>>();
 
 /**
- * Get the parent container for a selection.
+ * Get the handlers to execute for the given child based on its container.
  *
  * Might return undefined if no container under watch contains the node.
  */
-function getWatchedParent(childNode: Node): HTMLElement | undefined {
-  for (const el of watchList) {
+function getWatchHandlers(childNode: Node) {
+  for (const el of watchList.keys()) {
     if (el.contains(childNode)) {
-      return el;
+      return watchList.get(el);
     }
   }
   return undefined;
 }
 
 /**
- * Get the container under watch that contains the selection.
+ * Get the handlers to execute for the given watched container.
  *
  * TODO(jnu): currently selections that overflow a single watched parent in
  * any way will be ignored entirely. These edge cases could be handled in
  * other ways in the future.
  */
-function resolveContainer(selection: Selection): HTMLElement | undefined {
-  const anchorParent = getWatchedParent(selection.anchorNode);
-  if (!anchorParent) {
+function resolveHandlers(selection: Selection) {
+  const anchorCBs = getWatchHandlers(selection.anchorNode);
+  if (!anchorCBs) {
     _debug("Selection starts outside of watched container");
     return undefined;
   }
 
-  const focusParent = getWatchedParent(selection.focusNode);
-  if (!focusParent) {
+  const focusCBs = getWatchHandlers(selection.focusNode);
+  if (!focusCBs) {
     _debug("Selection ends outside of watched container");
     return undefined;
   }
 
-  if (anchorParent !== focusParent) {
+  if (anchorCBs !== focusCBs) {
     _debug("Selection spans multiple watched containers");
     return undefined;
   }
 
-  return anchorParent;
+  return anchorCBs;
 }
 
 /**
@@ -131,8 +131,8 @@ function delegate() {
     return;
   }
 
-  const container = resolveContainer(selection);
-  if (!container) {
+  const callbacks = resolveHandlers(selection);
+  if (!callbacks) {
     _debug("Ignoring selection due to overflow");
     return;
   }
@@ -141,6 +141,9 @@ function delegate() {
     const range = selection.getRangeAt(i);
     const extent = getSharpieExtent(range);
     _debug(range, extent);
+    for (const cb of callbacks) {
+      cb(extent);
+    }
   }
 }
 
@@ -159,14 +162,37 @@ function initialize() {
 /**
  * Handle text selections within the given element.
  */
-export function watch(element: HTMLElement) {
+export function watch(element: HTMLElement, handler: Function) {
   initialize();
-  watchList.add(element);
+  if (!watchList.has(element)) {
+    watchList.set(element, new Set());
+  }
+  watchList.get(element).add(handler);
 }
 
 /**
  * Stop watching selection events on the given element.
+ *
+ * Pass a handler explicitly to only remove the specified callback.
+ *
+ * Returns a boolean indicating whether cleanup was successful.
  */
-export function unwatch(element: HTMLElement) {
+export function unwatch(element: HTMLElement, handler?: Function) {
+  if (handler) {
+    const list = watchList.get(element);
+    if (!list) {
+      return false;
+    }
+    if (!list.has(handler)) {
+      return false;
+    }
+    list.delete(handler);
+    return true;
+  }
+
+  if (!watchList.has(element)) {
+    return false;
+  }
   watchList.delete(element);
+  return true;
 }

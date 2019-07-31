@@ -9,19 +9,10 @@
   <style type="text/css">
     #sample {
       font-family: 'Eczar', serif;
-      padding: 1em;
+      padding: 2em 10em;
       position: absolute;
       left: 0;
       top: 0;
-      width: 49%;
-    }
-    #output {
-      font-family: 'Fira Code', monospace;
-      padding: 1em;
-      position: absolute;
-      right: 0;
-      top: 0;
-      width: 49%;
     }
     h1, h2, h3, h4, h5, h6 {
       font-family: 'Sail', cursive;
@@ -29,7 +20,6 @@
   </style>
   <body>
     <div id="sample"></div>
-    <div id="output"> hi</div>
     <script type="text/javascript">
 const txt = `Book One
 
@@ -93,137 +83,147 @@ loved freedom and space. For the same reason his slippers were long, \
 soft, and broad, to the end that, whenever he lowered his legs from the \
 bed to the floor without looking at what he was doing, his feet might \
 fit into the slippers at once.`;
-      Sharpie.renderHTML(document.getElementById("sample"), txt, [
-          {
-            type: "markup",
-            start: 0,
-            end: 8,
-            meta: {
-              htmlTagName: "h1"
-            }
-          },
-          {
-            type: "markup",
-            start: 86,
-            end: 87,
-            meta: {
-              htmlTagName: "sup"
-            },
-          },
-          {
-            type: "markup",
-            start: 1544,
-            end: 1545,
-            meta: {
-              htmlTagName: "sup"
-            },
-          },
-          {
-            type: "markup",
-            start: 1544,
-            end: 1575,
-            meta: {
-              htmlTagName: "em"
-            },
-          },
-          {
-            type: "markup",
-            start: 730,
-            end: 741,
-            meta: {
-              htmlTagName: "em",
-            },
-          },
-          {
-            type: "markup",
-            start: 871,
-            end: 876,
-            meta: {
-              htmlTagName: "em",
-            },
-          },
-          // Test Overlap
-          {
-            type: "markup",
-            start: 168,
-            end: 230,
-            meta: {
-              htmlTagName: "strong",
-            },
-          },
-          {
-            type: "markup",
-            start: 200,
-            end: 250,
-            meta: {
-              htmlTagName: "em",
-            },
-          },
-          {
-            type: "markup",
-            start: 220,
-            end: 300,
-            meta: {
-              htmlTagName: "span",
-            },
-            format: {
-              color: "blue",
-            },
-          },
-          {
-            type: "markup",
-            start: 1519,
-            end: 1600,
-            meta: {
-              htmlTagName: "span",
-            },
-            format: {
-              color: "red",
-            },
-          },
-          // Test highlights
-          {
-            type: "highlight",
-            start: 1558,
-            end: 1650,
-          },
-          {
-            type: "highlight",
-            start: 1640,
-            end: 1720,
-          },
-          // Test redactions
-          {
-            type: "redaction",
-            start: 973,
-            end: 983,
-            content: "REDACTED",
-          },
-          {
-            type: "redaction",
-            start: 671,
-            end: 749,
-          },
-          {
-            type: "redaction",
-            start: 2570,
-            end: 2700,
-            extent: 10,
-          },
-          {
-            type: "redaction",
-            start: 523,
-            end: 524,
-            content: "SUPER WIDE REDACTION",
-          },
-          {
-            type: "redaction",
-            start: 2800,
-            end: 3000,
-          },
-        ]);
 
-      Sharpie.watch(document.getElementById("sample"));
+    const annotations = [
+        {
+          type: "markup",
+          start: 0,
+          end: 8,
+          meta: {
+            htmlTagName: "h1"
+          }
+        },
+        {
+          type: "markup",
+          start: 86,
+          end: 87,
+          meta: {
+            htmlTagName: "sup"
+          },
+        },
+        {
+          type: "markup",
+          start: 1544,
+          end: 1545,
+          meta: {
+            htmlTagName: "sup"
+          },
+        },
+        {
+          type: "markup",
+          start: 1544,
+          end: 1575,
+          meta: {
+            htmlTagName: "em"
+          },
+        },
+        {
+          type: "markup",
+          start: 730,
+          end: 741,
+          meta: {
+            htmlTagName: "em",
+          },
+        },
+        {
+          type: "markup",
+          start: 871,
+          end: 876,
+          meta: {
+            htmlTagName: "em",
+          },
+        },
+        // Test Overlap
+        {
+          type: "markup",
+          start: 168,
+          end: 230,
+          meta: {
+            htmlTagName: "strong",
+          },
+        },
+        {
+          type: "markup",
+          start: 200,
+          end: 250,
+          meta: {
+            htmlTagName: "em",
+          },
+        },
+        {
+          type: "markup",
+          start: 220,
+          end: 300,
+          meta: {
+            htmlTagName: "span",
+          },
+          format: {
+            color: "blue",
+          },
+        },
+        {
+          type: "markup",
+          start: 1519,
+          end: 1600,
+          meta: {
+            htmlTagName: "span",
+          },
+          format: {
+            color: "red",
+          },
+        },
+        // Test highlights
+        {
+          type: "highlight",
+          start: 1558,
+          end: 1650,
+        },
+        {
+          type: "highlight",
+          start: 1640,
+          end: 1720,
+        },
+        // Test redactions
+        {
+          type: "redaction",
+          start: 973,
+          end: 983,
+          content: "REDACTED",
+        },
+        {
+          type: "redaction",
+          start: 671,
+          end: 749,
+        },
+        {
+          type: "redaction",
+          start: 2570,
+          end: 2700,
+          extent: 10,
+        },
+        {
+          type: "redaction",
+          start: 523,
+          end: 524,
+          content: "SUPER WIDE REDACTION",
+        },
+        {
+          type: "redaction",
+          start: 2800,
+          end: 3000,
+        },
+      ];
+
+    Sharpie.renderHTML(document.getElementById("sample"), txt, annotations);
+    Sharpie.watch(document.getElementById("sample"), ([start, end]) => {
+      annotations.push({
+        type: "highlight",
+        start,
+        end,
+      });
+      Sharpie.renderHTML(document.getElementById("sample"), txt, annotations);
+    });
+
     </script>
   </body>
 </html>
