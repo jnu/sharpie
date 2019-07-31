@@ -95,20 +95,43 @@ function getTagName(annotation: Annotation, defaultTag: string = "span") {
 }
 
 /**
+ * Get an object used to generated styles.
+ *
+ * A default object is defined for each type, which the annotation itself may
+ * override when it is defined.
+ */
+function getFormatObject(annotation: Annotation): StyleAttributes | undefined {
+  const overrides = annotation.format;
+  switch (annotation.type) {
+    case "markup":
+      return overrides;
+    case "redaction":
+      return defaults(overrides, {
+        bgColor: "black",
+        color: "white",
+      });
+    default:
+      return undefined;
+  }
+}
+
+/**
  * Generate opening tag string for the annotation.
  */
 function openTag(annotation: Annotation, annotationId?: string, defaultTag?: string): string {
   const tagName = getTagName(annotation, defaultTag);
   const attrs: Array<[string, string]> = [];
-  if (annotation.format) {
-    attrs.push(["style", createStyleString(annotation.format)]);
+
+  const format = getFormatObject(annotation);
+  if (format) {
+    attrs.push(["style", createStyleString(format)]);
   }
 
   if (annotation.meta && annotation.meta.id) {
     attrs.push(["id", annotation.meta.id]);
   }
 
-  const cls = ["sharpie-annotation"];
+  const cls = ["sharpie-annotation", `sharpie-type-${annotation.type}`];
   if (annotationId) {
     cls.push(`sharpie-id-${annotationId}`);
   }
@@ -127,6 +150,47 @@ function openTag(annotation: Annotation, annotationId?: string, defaultTag?: str
 function closeTag(annotation: Annotation, defaultTag?: string): string {
   const tagName = getTagName(annotation, defaultTag);
   return `</${tagName}>`;
+}
+
+/**
+ * Create a buffer of the given text string of the given length.
+ *
+ * Each character within the text string will occupy a slot in the buffer. The
+ * space character is used to pad before and after the text string until the
+ * buffer is of the length specified by `width`.
+ *
+ * Some behavior of this function may be unexpected:
+ *
+ * 1) If text is greater than the designated width, it is returned directly.
+ * 2) The padding character is treated as a single character regardless of
+ *    its literal string length in JavaScript. (This is so that HTML markup
+ *    can be passed.)
+ */
+function createPaddedOutputBuffer(text: string | undefined, width: number, paddingChar: string) {
+  text = text || "";
+  const textLength = text.length;
+
+  const length = Math.max(textLength, width);
+  const delta = width - textLength;
+  const lWidth = delta >> 1;
+  const rWidth = delta - lWidth;
+
+  const buf = new Array<string>(length);
+
+  let cursor = 0;
+  for (let i = 0; i < lWidth; i++) {
+    buf[cursor++] = paddingChar;
+  }
+
+  for (let i = 0; i < textLength; i++) {
+    buf[cursor++] = text[i];
+  }
+
+  for (let i = 0; i < rWidth; i++) {
+    buf[cursor++] = paddingChar;
+  }
+
+  return buf;
 }
 
 /**
@@ -151,9 +215,16 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
   const endOrderStack: Annotation[] = [];
   // Stack of overlapping tags that need to be reopened.
   const reopen: Annotation[] = [];
-  // Stack of redaction annotations that are currently being applied.
-  const redactionStack: Redaction[] = [];
+  // Stack of open redactions and their state.
+  const openRedactions = [] as Array<{
+    redaction: Redaction;
+    output: string[];
+    extent: number;
+    cursor: number;
+    lastWrittenCursor: number;
+  }>;
 
+  // Generated output string (HTML)
   let output = "";
 
   for (let pointer = 0; pointer <= text.length; pointer++) {
@@ -180,6 +251,19 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
       output += openTag(atn, ids.getId(atn));
       sortedInsert(endOrderStack, atn, a => a.end);
       openOrderStack.unshift(atn);
+      // Store this redaction if not currently redacting, or if this one goes
+      // longer. The last / longest redaction takes precedence on overlaps.
+      if (atn.type === "redaction") {
+        const space = "<span style=\"width: 0.8em; display: inline-block;\"> </span>";
+        const extent = atn.extent ? atn.extent : atn.end - atn.start;
+        openRedactions.push({
+          redaction: atn,
+          output: createPaddedOutputBuffer(atn.content, extent, space),
+          extent,
+          cursor: -1,
+          lastWrittenCursor: -1,
+        });
+      }
     }
 
     // Reopen overlapping tags
@@ -187,13 +271,36 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
       const atn = reopen.shift();
       output += openTag(atn, ids.getId(atn));
       openOrderStack.unshift(atn);
-      // NB: Don't add the tag to the end order stack because it was never
-      // popped from there.
+      // NB: No need to add this annotation to any of the other stacks, since
+      // it was only ever popped from open-order.
     }
 
-    // Write the character at this position, or the redaction that should
-    // replace the character.
-    output += text[pointer] || "";
+    // Clean up closing redactions
+    while (openRedactions.length && openRedactions[0].redaction.end === pointer) {
+      openRedactions.shift();
+    }
+
+    // Process open redaction annotations.
+    for (let i = 0; i < openRedactions.length; i++) {
+      const atn = openRedactions[i];
+
+      // Calculate the new cursor position within this annotation
+      const pct = (pointer - atn.redaction.start) / (atn.redaction.end - atn.redaction.start);
+      const rawPos = pct * atn.extent;
+      atn.cursor = Math.floor(rawPos);
+
+      // Only write the top-most redaction, and only if the character at this
+      // position has not been written before.
+      if (i === 0 && atn.cursor !== atn.lastWrittenCursor) {
+        output += atn.output[atn.cursor];
+        atn.lastWrittenCursor = atn.cursor;
+      }
+    }
+
+    // If the underlying text is not actively being  redacted, write it.
+    if (openRedactions.length === 0) {
+      output += text[pointer] || "";
+    }
   }
 
   return output;

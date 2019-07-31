@@ -193,6 +193,24 @@ fit into the slippers at once.`;
               opacity: 0.6,
             },
           },
+          // Test redactions
+          {
+            type: "redaction",
+            start: 973,
+            end: 983,
+            content: "REDACTED",
+          },
+          {
+            type: "redaction",
+            start: 671,
+            end: 749,
+          },
+          {
+            type: "redaction",
+            start: 2579,
+            end: 2700,
+            extent: 5,
+          },
         ]);
 
       Sharpie.watch(document.getElementById("sample"));

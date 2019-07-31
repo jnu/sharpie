@@ -25,6 +25,10 @@ export interface Attributed {
 export interface Redaction extends Extent, Attributed {
   type: "redaction";
   content?: string;
+  /**
+   * Optional setting of how wide the redaction should appear in the text. By
+   * default this is the difference between the end and the start positions.
+   */
   extent?: number;
 }
 
