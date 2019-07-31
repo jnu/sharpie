@@ -122,15 +122,18 @@ function openTag(annotation: Annotation, annotationId?: string, defaultTag?: str
   const tagName = getTagName(annotation, defaultTag);
   const attrs: Array<[string, string]> = [];
 
+  // Inline styles
   const format = getFormatObject(annotation);
   if (format) {
     attrs.push(["style", createStyleString(format)]);
   }
 
+  // ID attribute
   if (annotation.meta && annotation.meta.id) {
     attrs.push(["id", annotation.meta.id]);
   }
 
+  // className string
   const cls = ["sharpie-annotation", `sharpie-type-${annotation.type}`];
   if (annotationId) {
     cls.push(`sharpie-id-${annotationId}`);
@@ -139,6 +142,10 @@ function openTag(annotation: Annotation, annotationId?: string, defaultTag?: str
     cls.push(annotation.meta.htmlClassName);
   }
   attrs.push(["class", cls.join(" ")]);
+
+  // Data attributes
+  attrs.push(["data-sharpie-start", `${annotation.start}`]);
+  attrs.push(["data-sharpie-end", `${annotation.end}`]);
 
   const attrString = attrs.map(([k, v]) => `${k}="${v}"`).join(" ");
   return `<${tagName}${attrString ? " " + attrString : ""}>`;
@@ -221,7 +228,6 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
     output: string[];
     extent: number;
     cursor: number;
-    lastWrittenCursor: number;
   }>;
 
   // Generated output string (HTML)
@@ -255,13 +261,17 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
       // longer. The last / longest redaction takes precedence on overlaps.
       if (atn.type === "redaction") {
         const space = "<span style=\"width: 0.8em; display: inline-block;\"> </span>";
-        const extent = atn.extent ? atn.extent : atn.end - atn.start;
+        // Choose the effective redaction width by taking the explicitly
+        // defined extent if there is one, or the max of the annotation span
+        // and the redaction content length if not.
+        const extent = atn.extent ?
+          atn.extent :
+          Math.max(atn.end - atn.start, (atn.content || "").length);
         openRedactions.push({
           redaction: atn,
           output: createPaddedOutputBuffer(atn.content, extent, space),
           extent,
-          cursor: -1,
-          lastWrittenCursor: -1,
+          cursor: 0,
         });
       }
     }
@@ -285,15 +295,19 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
       const atn = openRedactions[i];
 
       // Calculate the new cursor position within this annotation
-      const pct = (pointer - atn.redaction.start) / (atn.redaction.end - atn.redaction.start);
+      let cursor = atn.cursor;
+      const pct = (1 + pointer - atn.redaction.start) / (atn.redaction.end - atn.redaction.start);
       const rawPos = pct * atn.extent;
       atn.cursor = Math.floor(rawPos);
+      // Only write the top-most redaction, and only when the cursor moved.
+      const needsWrite = i === 0 && atn.cursor > cursor;
 
-      // Only write the top-most redaction, and only if the character at this
-      // position has not been written before.
-      if (i === 0 && atn.cursor !== atn.lastWrittenCursor) {
-        output += atn.output[atn.cursor];
-        atn.lastWrittenCursor = atn.cursor;
+      // Write anything between the old cursor and the new cursor position.
+      // This lets us write redactions with content longer than the span it
+      // is technically redacting.
+      while (needsWrite && cursor < atn.cursor) {
+        console.log(atn.redaction.content, cursor, atn.cursor, atn.extent)
+        output += atn.output[cursor++];
       }
     }
 
@@ -303,6 +317,7 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
     }
   }
 
+  // Ta-da!
   return output;
 }
 
