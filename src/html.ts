@@ -1,5 +1,5 @@
 import {Annotation, Markup, Redaction, StyleAttributes} from "./annotation";
-import {defaults, _debug, sortedInsert} from "./util";
+import {defaults, _debug, _error, sortedInsert} from "./util";
 import {IDAllocator} from "./id_allocator";
 
 /**
@@ -25,8 +25,21 @@ interface RedactionMeta {
 interface Opening {
   annotation: Annotation;
   tagName: string;
-  novel: boolean;
+  part: number;
   redaction?: RedactionMeta;
+}
+
+/**
+ * Internal object tracking state of opened tags.
+ */
+interface OpenedTagMeta {
+  annotation: Annotation;
+  start: number;
+  end: number;
+  part: number;
+  id: string;
+  warp: number;
+  outputOffsetPos: number;
 }
 
 /**
@@ -225,7 +238,7 @@ function getFormatObject(annotation: Annotation): Object | undefined {
 /**
  * Generate opening tag string for the annotation.
  */
-function openTag(annotation: Annotation, annotationId: string, position: number, warp: number): string {
+function openTag(annotation: Annotation, annotationId: string, part: number): string {
   const tagName = getTagName(annotation);
   const attrs: Array<[string, string]> = [];
 
@@ -250,12 +263,11 @@ function openTag(annotation: Annotation, annotationId: string, position: number,
   }
   attrs.push(["class", cls.join(" ")]);
 
-  // Data attributes
-  attrs.push(["data-sharpie-position", `${position}`]);
-  attrs.push(["data-sharpie-warp", `${warp}`]);
-
+  // Write the metadata ID so that it can be replaced later with data
+  // attributes once they are all known.
+  const metaDataId = getMetaDataId(annotationId, part);
   const attrString = attrs.map(([k, v]) => `${k}="${v}"`).join(" ");
-  return `<${tagName}${attrString ? " " + attrString : ""}>`;
+  return `<${tagName} ${metaDataId}${attrString ? " " + attrString : ""}>`;
 }
 
 /**
@@ -331,6 +343,35 @@ function canContain(ancestor: Annotation, child: Annotation) {
 }
 
 /**
+ * Create a unique slug for this node's annotation and sequence number.
+ */
+function getMetaDataId(annotationId: string, part: number) {
+  return `__metadata_${annotationId}_${part}__`;
+}
+
+/**
+ * Write metadata for every HTML node into the data attributes.
+ */
+function writeMetaData(text: string, meta: Map<string, OpenedTagMeta>) {
+  for (const [id, data] of meta) {
+    const attrs = [
+      `data-sharpie-start="${data.start}"`,
+      `data-sharpie-end="${data.end}"`,
+      `data-sharpie-warp="${data.warp}"`,
+    ].join(" ");
+
+    // Cut the text at the offset where the opening tag starts to ensure that
+    // replacement only matches the right placeholder.
+    // TODO(jnu): could optimize by processing in appearance order
+    const preamble = text.substring(0, data.outputOffsetPos);
+    const postamble = text.substring(data.outputOffsetPos).replace(id, attrs);
+    text = preamble + postamble;
+  }
+
+  return text;
+}
+
+/**
  * Render the given text into a string of HTML.
  */
 export function renderToString(text: string, annotations: Annotation[], opts?: RenderOpts): string {
@@ -346,15 +387,17 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
   // Queue for annotations to apply
   const sorted = annotations.sort(sortAnnotations);
   // Stack of annotations that have been opened
-  const openOrderStack: Annotation[] = [];
+  const openOrderStack: OpenedTagMeta[] = [];
   // Annotations stack ordered by end position. This is used to detect
   // annotations that have overlapping extents. When the extents overlap, close
   // and reopen the tags to generate valid HTML.
   const endOrderStack: Annotation[] = [];
   // Stack of overlapping tags that need to be reopened.
-  const reopen: Annotation[] = [];
+  const reopen: OpenedTagMeta[] = [];
   // Stack of open redactions and their state.
   const openRedactions: RedactionMeta[] = [];
+  // Cache of meta data for every tag written
+  const nodeMetaCache = new Map<string, OpenedTagMeta>();
 
   // Generated output string (HTML)
   let output = "";
@@ -366,16 +409,26 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
       // Write closing tags for every tag that overlaps this one
       while (openOrderStack.length > 0) {
         const openedAfter = openOrderStack.shift();
-        output += closeTag(openedAfter);
+        output += closeTag(openedAfter.annotation);
+        nodeMetaCache.get(getMetaDataId(openedAfter.id, openedAfter.part)).end = pointer;
+
         // Break out of the loop when the real tag to close is found.
-        if (openedAfter === endTag) {
+        if (openedAfter.annotation === endTag) {
           break;
         }
         // Reopen any tags that continue beyond this one
         // NOTE: there may be annotations processed at this step that end at
         // the same position and should not be reopened.
-        if (openedAfter.end > pointer) {
-          reopen.unshift(openedAfter);
+        if (openedAfter.annotation.end > pointer) {
+          reopen.unshift({
+            annotation: openedAfter.annotation,
+            id: openedAfter.id,
+            part: openedAfter.part + 1,
+            start: pointer,
+            end: -1,
+            outputOffsetPos: -1,
+            warp: -1,
+          });
         }
       }
     }
@@ -393,7 +446,7 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
       // Find the outermost container that cannot safely contain the new child.
       let invalidContainerIndex = -1;
       for (let i = openOrderStack.length - 1; i >= 0; i--) {
-        if (!canContain(openOrderStack[i], atn)) {
+        if (!canContain(openOrderStack[i].annotation, atn)) {
           invalidContainerIndex = i;
           break;
         }
@@ -403,8 +456,19 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
       // reopened.
       for (let i = 0; i <= invalidContainerIndex; i++) {
         const openedBefore = openOrderStack.shift();
-        output += closeTag(openedBefore);
-        reopen.unshift(openedBefore);
+        output += closeTag(openedBefore.annotation);
+        nodeMetaCache.get(getMetaDataId(openedBefore.id, openedBefore.part)).end = pointer;
+
+        reopen.unshift({
+          annotation: openedBefore.annotation,
+          id: openedBefore.id,
+          part: openedBefore.part + 1,
+          start: pointer,
+          end: -1,
+          outputOffsetPos: -1,
+          warp: -1,
+        });
+
         i++;
       }
 
@@ -440,18 +504,18 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
       openingQueue.push({
         annotation: atn,
         tagName,
-        novel: true,
         redaction,
+        part: 0,
       });
     }
 
     // Process re-opening tags
     while (reopen.length > 0) {
-      const atn = reopen.shift();
+      const node = reopen.shift();
       openingQueue.push({
-        annotation: atn,
-        tagName: getTagName(atn),
-        novel: false,
+        annotation: node.annotation,
+        tagName: getTagName(node.annotation),
+        part: node.part,
       });
     }
 
@@ -461,16 +525,32 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
       const opening = openingQueue.shift();
       const atn = opening.annotation;
 
-      if (opening.novel) {
+      // For novel tags, add them to other stacks
+      if (opening.part === 0) {
         sortedInsert(endOrderStack, atn, a => a.end);
         if (opening.redaction) {
           openRedactions.unshift(opening.redaction);
         }
       }
 
-      openOrderStack.unshift(atn);
+      const opened = {
+        annotation: atn,
+        id: ids.getId(atn),
+        part: opening.part,
+        start: pointer,
+        end: -1,
+        warp: warpMap.get(atn),
+        outputOffsetPos: output.length,
+      };
+
       // Write open tag
-      output += openTag(atn, ids.getId(atn), pointer, warpMap.get(atn));
+      output += openTag(atn, ids.getId(atn), opening.part);
+      const metaDataId = getMetaDataId(opened.id, opened.part);
+      if (nodeMetaCache.has(metaDataId)) {
+        _error("Overwriting node metadata", metaDataId);
+      }
+      nodeMetaCache.set(metaDataId, opened);
+      openOrderStack.unshift(opened);
     }
 
     // Clean up closing redactions
@@ -505,7 +585,7 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
   }
 
   // Ta-da!
-  return output;
+  return writeMetaData(output, nodeMetaCache);
 }
 
 /**

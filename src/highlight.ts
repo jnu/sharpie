@@ -55,7 +55,7 @@ function getSharpieOffsetParent(container: Node) {
   let el = container.parentElement;
   const root = el.getRootNode();
   while (el && el !== root) {
-    if (el.dataset && el.dataset.hasOwnProperty("sharpiePosition")) {
+    if (el.dataset && el.dataset.hasOwnProperty("sharpieStart")) {
       return el;
     }
     el = el.parentElement;
@@ -72,7 +72,7 @@ function getSharpieSibling(container: Node): HTMLElement | undefined {
   let el = container.previousElementSibling;
   while (el) {
     // @ts-ignore
-    if (el.dataset && el.dataset.hasOwnProperty("sharpiePosition")) {
+    if (el.dataset && el.dataset.hasOwnProperty("sharpieStart")) {
       return el;
     }
     el = el.previousElementSibling;
@@ -81,29 +81,19 @@ function getSharpieSibling(container: Node): HTMLElement | undefined {
 }
 
 /**
- * Get the scale factor and offset position of the given node.
+ * Get offset of the given node.
  *
  * Uses contextual hints from surrounding elements.
  */
-function getSharpieOffsetMeta(el: Node) {
+function getSharpieOffset(el: Node) {
   const sharpieContainer = getSharpieOffsetParent(el);
   const sharpieSibling = getSharpieSibling(el);
-  const rawWarp = sharpieContainer ? sharpieContainer.dataset.sharpieWarp : 1;
   const rawPos = sharpieSibling ?
-    sharpieSibling.dataset.sharpiePosition :
-    sharpieContainer.dataset.sharpiePosition;
-  let delta = 0;
-  if (sharpieSibling) {
-    const sibRawWarp = sharpieSibling.dataset.sharpieWarp;
-    const sibWarp = sibRawWarp ? +sibRawWarp : 1;
-    const sibLength = sharpieSibling.textContent.length;
-    delta = sibLength * sibWarp;
-  }
+    sharpieSibling.dataset.sharpieEnd :
+    sharpieContainer.dataset.sharpieStart;
+  const rawWarp = sharpieContainer.dataset.sharpieWarp;
 
-  return {
-    warp: rawWarp ? +rawWarp : 1,
-    pos: (+rawPos) + delta,
-  };
+  return {pos: +rawPos, warp: rawWarp ? +rawWarp : 1};
 }
 
 /**
@@ -113,10 +103,10 @@ function getSharpieOffsetMeta(el: Node) {
  * stretch the underlying character count in various ways.
  */
 function getSharpieExtent(range: Range) {
-  const startMeta = getSharpieOffsetMeta(range.startContainer);
-  const endMeta = getSharpieOffsetMeta(range.endContainer);
-  const start = startMeta.warp * range.startOffset + startMeta.pos;
-  const end = endMeta.warp * range.endOffset + endMeta.pos;
+  const startMeta = getSharpieOffset(range.startContainer);
+  const endMeta = getSharpieOffset(range.endContainer);
+  const start = startMeta.pos + range.startOffset * startMeta.warp;
+  const end = endMeta.pos + range.endOffset * endMeta.warp;
   return [Math.floor(start), Math.ceil(end)];
 }
 

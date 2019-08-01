@@ -9,6 +9,16 @@ export const _debug = (...args: {}[]) => {
 };
 
 /**
+ * Output error message.
+ */
+export const _error = (...args: {}[]) => {
+  if (process.env.NODE_ENV !== "production") {
+    // tslint:disable-next-line:no-console
+    console.error(...args);
+  }
+};
+
+/**
  * Supply default properties where they are missing to an object.
  */
 export const defaults = <T>(o: T | undefined, d: T): T => {
