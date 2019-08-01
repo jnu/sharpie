@@ -94,4 +94,8 @@ Some other text</p>`);
 `<span data-sharpie-start="0" data-sharpie-end="4" data-sharpie-warp="1" style="background-color: #fffa129c;" class="sharpie-annotation sharpie-type-highlight sharpie-id-0">0123</span><span data-sharpie-start="4" data-sharpie-end="6" data-sharpie-warp="1" style="background-color: #000000; color: white; opacity: 0.8; white-space: pre-wrap; word-break: break-word;" class="sharpie-annotation sharpie-type-redaction sharpie-id-1"><span data-sharpie-start="4" data-sharpie-end="6" data-sharpie-warp="1" style="background-color: #fffa129c;" class="sharpie-annotation sharpie-type-highlight sharpie-id-0">&nbsp;&nbsp;</span></span><span data-sharpie-start="6" data-sharpie-end="10" data-sharpie-warp="1" style="background-color: #fffa129c;" class="sharpie-annotation sharpie-type-highlight sharpie-id-0">6789</span>`);
   });
 
+  it("Ignores annotations with invalid ranges", () => {
+    assert.equal(renderToString("foo", [{start: 2, end: 1, type: "highlight"}], {autoParagraph: false}), "foo");
+  });
+
 });

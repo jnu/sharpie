@@ -221,6 +221,7 @@ fit into the slippers at once.`;
         start,
         end,
       });
+      console.log("New annotation:", annotations[annotations.length - 1]);
       Sharpie.renderHTML(document.getElementById("sample"), txt, annotations);
     });
 

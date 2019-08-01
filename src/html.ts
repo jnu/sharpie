@@ -459,6 +459,10 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
     // Process newly opening tags
     while (sorted.length > 0 && sorted[0].start === pointer) {
       const atn = sorted.shift();
+      if (atn.end <= atn.start) {
+        _debug("Ignoring invalid annotation range", atn.start, atn.end);
+        continue;
+      }
       const tagName = getTagName(atn);
 
       // Find the outermost container that cannot safely contain the new child.
