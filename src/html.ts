@@ -331,11 +331,13 @@ function canContain(ancestor: Annotation, child: Annotation) {
 
   // Force inline tags to reopen within block tags.
   if (BLOCK_TAGS.has(childTag) && !BLOCK_TAGS.has(ancestorTag)) {
+    _debug("Forcing inline reopen:", ancestorTag, "cannot contain", childTag);
     return false;
   }
 
   // Force highlights to reopen within redactions for aesthetic reasons.
   if (child.type === "redaction" && ancestor.type === "highlight") {
+    _debug("Forcing highlight reopen: containing redaction");
     return false;
   }
 
@@ -405,17 +407,33 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
   for (let pointer = 0; pointer <= text.length; pointer++) {
     // Write any tags that are closing at this position
     while (endOrderStack.length > 0 && endOrderStack[0].end === pointer) {
-      const endTag = endOrderStack.shift();
+      const endTag = endOrderStack[0];
       // Write closing tags for every tag that overlaps this one
       while (openOrderStack.length > 0) {
         const openedAfter = openOrderStack.shift();
         output += closeTag(openedAfter.annotation);
         nodeMetaCache.get(getMetaDataId(openedAfter.id, openedAfter.part)).end = pointer;
 
+        // Ensure any tag closing at this position is removed from the end
+        // order stack.
+        let i = 0;
+        while (i < endOrderStack.length) {
+          const candidate = endOrderStack[i];
+          if (candidate.end > pointer) {
+            break;
+          }
+          if (candidate === openedAfter.annotation) {
+            endOrderStack.splice(i, 1);
+          } else {
+            i++;
+          }
+        }
+
         // Break out of the loop when the real tag to close is found.
-        if (openedAfter.annotation === endTag) {
+        if (endTag === openedAfter.annotation) {
           break;
         }
+
         // Reopen any tags that continue beyond this one
         // NOTE: there may be annotations processed at this step that end at
         // the same position and should not be reopened.
