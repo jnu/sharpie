@@ -2,10 +2,36 @@ import {Annotation, Markup, Redaction, StyleAttributes} from "./annotation";
 import {defaults, _debug, sortedInsert} from "./util";
 import {IDAllocator} from "./id_allocator";
 
-interface RenderOpts {
+/**
+ * Options to control how annotations are rendered onto text.
+ */
+export interface RenderOpts {
   autoParagraph?: boolean;
 }
 
+/**
+ * Internal object tracking state of redactions during output.
+ */
+interface RedactionMeta {
+  redaction: Redaction;
+  output: string[];
+  extent: number;
+  cursor: number;
+}
+
+/**
+ * Internal object tracking state of annotations during opening.
+ */
+interface Opening {
+  annotation: Annotation;
+  tagName: string;
+  novel: boolean;
+  redaction?: RedactionMeta;
+}
+
+/**
+ * HTML block tags
+ */
 const BLOCK_TAGS = new Set([
   "address",
   "article",
@@ -36,20 +62,6 @@ const BLOCK_TAGS = new Set([
   "table",
   "ul",
   ]);
-
-interface RedactionMeta {
-  redaction: Redaction;
-  output: string[];
-  extent: number;
-  cursor: number;
-}
-
-interface Opening {
-  annotation: Annotation;
-  tagName: string;
-  novel: boolean;
-  redaction?: RedactionMeta;
-}
 
 /**
  * Sort the tags of simultaneously opening annotations.
@@ -138,9 +150,6 @@ const STYLE_TO_CSS = {
 function createStyleString(style: StyleAttributes) {
   const styles = Object.keys(style).map((key: keyof StyleAttributes) => {
     const value = style[key];
-    if (!STYLE_TO_CSS.hasOwnProperty(key)) {
-      _debug("Unknown style key", key);
-    }
     const cssKey = STYLE_TO_CSS[key] || key;
     return `${cssKey}: ${value}`;
   });
@@ -178,9 +187,9 @@ function inferParagraphBreaks(text: string): Markup[] {
  */
 function getTagName(annotation: Annotation, defaultTag: string = "span") {
   if (annotation.meta && annotation.meta.htmlTagName) {
-    return annotation.meta.htmlTagName;
+    return annotation.meta.htmlTagName.toLowerCase();
   }
-  return defaultTag;
+  return defaultTag.toLowerCase();
 }
 
 /**
@@ -300,6 +309,28 @@ function createPaddedOutputBuffer(text: string | undefined, width: number, paddi
 }
 
 /**
+ * Test whether a parent annotation can safely contain the given child.
+ *
+ * E.g., inline elements cannot contain block elements.
+ */
+function canContain(ancestor: Annotation, child: Annotation) {
+  const ancestorTag = getTagName(ancestor);
+  const childTag = getTagName(child);
+
+  // Force inline tags to reopen within block tags.
+  if (BLOCK_TAGS.has(childTag) && !BLOCK_TAGS.has(ancestorTag)) {
+    return false;
+  }
+
+  // Force highlights to reopen within redactions for aesthetic reasons.
+  if (child.type === "redaction" && ancestor.type === "highlight") {
+    return false;
+  }
+
+  return true;
+}
+
+/**
  * Render the given text into a string of HTML.
  */
 export function renderToString(text: string, annotations: Annotation[], opts?: RenderOpts): string {
@@ -357,6 +388,25 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
     // Process newly opening tags
     while (sorted.length > 0 && sorted[0].start === pointer) {
       const atn = sorted.shift();
+      const tagName = getTagName(atn);
+
+      // Find the outermost container that cannot safely contain the new child.
+      let invalidContainerIndex = -1;
+      for (let i = openOrderStack.length - 1; i >= 0; i--) {
+        if (!canContain(openOrderStack[i], atn)) {
+          invalidContainerIndex = i;
+          break;
+        }
+      }
+
+      // Everything up until the last invalid container needs to be closed and
+      // reopened.
+      for (let i = 0; i <= invalidContainerIndex; i++) {
+        const openedBefore = openOrderStack.shift();
+        output += closeTag(openedBefore);
+        reopen.unshift(openedBefore);
+        i++;
+      }
 
       // Warp represents the number of characters in the real text are
       // represented by one character of output text in this range. It's added
@@ -389,7 +439,7 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
 
       openingQueue.push({
         annotation: atn,
-        tagName: getTagName(atn),
+        tagName,
         novel: true,
         redaction,
       });

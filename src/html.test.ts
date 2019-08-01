@@ -74,4 +74,26 @@ Some other text`;
 Some other text</p>`);
   });
 
+  it("Forces reopenings for inline tags trying to contain block tags", () => {
+    const atns: Annotation[] = [
+      {start: 0, end: 10, type: "markup", meta: {htmlTagName: "span"}},
+      {start: 4, end: 6, type: "markup", meta: {htmlTagName: "h1"}},
+    ];
+    const str = `0123456789`;
+    assert.equal(renderToString(str, atns, {autoParagraph: false}),
+`<span class="sharpie-annotation sharpie-type-markup sharpie-id-0" data-sharpie-position="0" data-sharpie-warp="1">0123</span><h1 class="sharpie-annotation sharpie-type-markup sharpie-id-1" data-sharpie-position="4" data-sharpie-warp="1"><span class="sharpie-annotation sharpie-type-markup sharpie-id-0" data-sharpie-position="4" data-sharpie-warp="1">45</span></h1><span class="sharpie-annotation sharpie-type-markup sharpie-id-0" data-sharpie-position="6" data-sharpie-warp="1">6789</span>`
+    );
+  });
+
+  it("Forces reopenings for highlights trying to contain redactions", () => {
+    const atns: Annotation[] = [
+      {start: 0, end: 10, type: "highlight"},
+      {start: 4, end: 6, type: "redaction"},
+    ];
+    const str = `0123456789`;
+    assert.equal(renderToString(str, atns, {autoParagraph: false}),
+`<span style="background-color: #fffa129c;" class="sharpie-annotation sharpie-type-highlight sharpie-id-0" data-sharpie-position="0" data-sharpie-warp="1">0123</span><span style="background-color: #000000; color: white; opacity: 0.8; white-space: pre-wrap; word-break: break-word;" class="sharpie-annotation sharpie-type-redaction sharpie-id-1" data-sharpie-position="4" data-sharpie-warp="1"><span style="background-color: #fffa129c;" class="sharpie-annotation sharpie-type-highlight sharpie-id-0" data-sharpie-position="4" data-sharpie-warp="1">&nbsp;&nbsp;</span></span><span style="background-color: #fffa129c;" class="sharpie-annotation sharpie-type-highlight sharpie-id-0" data-sharpie-position="6" data-sharpie-warp="1">6789</span>`
+    );
+  });
+
 });
