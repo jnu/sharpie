@@ -69,7 +69,7 @@ paragraph annotations.</p>`);
 
 Some other text`;
     assert.equal(renderToString(str, atns),
-`<p data-sharpie-start="0" data-sharpie-end="6" data-sharpie-warp="1" data-sharpie-id="inferred-0" class="sharpie-annotation sharpie-type-markup auto-para-break"><h1 data-sharpie-start="0" data-sharpie-end="6" data-sharpie-warp="1" data-sharpie-id="0" class="sharpie-annotation sharpie-type-markup"><span data-sharpie-start="0" data-sharpie-end="6" data-sharpie-warp="1" data-sharpie-id="1" style="background-color: #fffa129c;" class="sharpie-annotation sharpie-type-highlight">Header</span></h1></p><p data-sharpie-start="6" data-sharpie-end="7" data-sharpie-warp="1" data-sharpie-id="inferred-1" class="sharpie-annotation sharpie-type-markup auto-para-break">
+`<p data-sharpie-start="0" data-sharpie-end="6" data-sharpie-warp="1" data-sharpie-id="inferred-0" class="sharpie-annotation sharpie-type-markup auto-para-break"><h1 data-sharpie-start="0" data-sharpie-end="6" data-sharpie-warp="1" data-sharpie-id="0" class="sharpie-annotation sharpie-type-markup"><span data-sharpie-start="0" data-sharpie-end="6" data-sharpie-warp="1" data-sharpie-id="1" class="sharpie-annotation sharpie-type-highlight">Header</span></h1></p><p data-sharpie-start="6" data-sharpie-end="7" data-sharpie-warp="1" data-sharpie-id="inferred-1" class="sharpie-annotation sharpie-type-markup auto-para-break">
 </p><p data-sharpie-start="7" data-sharpie-end="23" data-sharpie-warp="1" data-sharpie-id="inferred-2" class="sharpie-annotation sharpie-type-markup auto-para-break">
 Some other text</p>`);
   });
@@ -91,7 +91,7 @@ Some other text</p>`);
     ];
     const str = `0123456789`;
     assert.equal(renderToString(str, atns, {autoParagraph: false}),
-`<span data-sharpie-start="0" data-sharpie-end="4" data-sharpie-warp="1" data-sharpie-id="0" style="background-color: #fffa129c;" class="sharpie-annotation sharpie-type-highlight">0123</span><span data-sharpie-start="4" data-sharpie-end="6" data-sharpie-warp="1" data-sharpie-id="1" style="background-color: #000000; color: white; opacity: 0.8; white-space: pre-wrap; word-break: break-word;" class="sharpie-annotation sharpie-type-redaction"><span data-sharpie-start="4" data-sharpie-end="6" data-sharpie-warp="1" data-sharpie-id="0" style="background-color: #fffa129c;" class="sharpie-annotation sharpie-type-highlight">&nbsp;&nbsp;</span></span><span data-sharpie-start="6" data-sharpie-end="10" data-sharpie-warp="1" data-sharpie-id="0" style="background-color: #fffa129c;" class="sharpie-annotation sharpie-type-highlight">6789</span>`);
+`<span data-sharpie-start="0" data-sharpie-end="4" data-sharpie-warp="1" data-sharpie-id="0" class="sharpie-annotation sharpie-type-highlight">0123</span><span data-sharpie-start="4" data-sharpie-end="6" data-sharpie-warp="1" data-sharpie-id="1" style="white-space: pre-wrap; word-break: break-word;" class="sharpie-annotation sharpie-type-redaction"><span data-sharpie-start="4" data-sharpie-end="6" data-sharpie-warp="1" data-sharpie-id="0" class="sharpie-annotation sharpie-type-highlight">&nbsp;&nbsp;</span></span><span data-sharpie-start="6" data-sharpie-end="10" data-sharpie-warp="1" data-sharpie-id="0" class="sharpie-annotation sharpie-type-highlight">6789</span>`);
   });
 
   it("Ignores annotations with invalid ranges", () => {

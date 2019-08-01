@@ -210,27 +210,17 @@ function getTagName(annotation: Annotation, defaultTag: string = "span") {
  * A default object is defined for each type, which the annotation itself may
  * override when it is defined.
  */
-function getFormatObject(annotation: Annotation): Object | undefined {
+function getFormatObject(annotation: Annotation): Object {
   const overrides = annotation.format;
   switch (annotation.type) {
-    case "markup":
-      return overrides;
     case "redaction":
-      const fmt = defaults(overrides, {
-        bgColor: "#000000",
-        color: "white",
-        opacity: 0.8,
-      });
-      return {...fmt,
+      return {
         "white-space": "pre-wrap",
         "word-break": "break-word",
+        ...overrides
       };
-    case "highlight":
-      return defaults(overrides, {
-        bgColor: "#fffa129c",
-      });
     default:
-      return undefined;
+      return {...overrides};
   }
 }
 
@@ -244,7 +234,10 @@ function openTag(annotation: Annotation, annotationId: string, part: number): st
   // Inline styles
   const format = getFormatObject(annotation);
   if (format) {
-    attrs.push(["style", createStyleString(format)]);
+    const styleString = createStyleString(format);
+    if (styleString) {
+      attrs.push(["style", createStyleString(format)]);
+    }
   }
 
   // ID attribute
