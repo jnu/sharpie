@@ -51,12 +51,14 @@ function resolveHandlers(selection: Selection) {
 /**
  * Get the most immediate Sharpie parent container.
  */
-function getSharpieOffsetParent(container: Node) {
-  let el = container.parentElement;
-  const root = el.getRootNode();
+function getSharpieOffsetParent(container: Node): HTMLElement | undefined {
+  let el = container;
+  // TODO(jnu): use more immediate anchor to short-circuit search
+  const root = document.body;
   while (el && el !== root) {
+    // @ts-ignore
     if (el.dataset && el.dataset.hasOwnProperty("sharpieStart")) {
-      return el;
+      return el as HTMLElement;
     }
     el = el.parentElement;
   }
@@ -69,12 +71,13 @@ function getSharpieOffsetParent(container: Node) {
  */
 function getSharpieSibling(container: Node): HTMLElement | undefined {
   // @ts-ignore
-  let el = container.previousElementSibling;
+  let el = container;
   while (el) {
     // @ts-ignore
     if (el.dataset && el.dataset.hasOwnProperty("sharpieStart")) {
-      return el;
+      return el as HTMLElement;
     }
+    // @ts-ignore
     el = el.previousElementSibling;
   }
   return undefined;
@@ -129,6 +132,10 @@ function delegate() {
 
   for (let i = 0; i < selection.rangeCount; i++) {
     const range = selection.getRangeAt(i);
+    if (range.collapsed) {
+      _debug("Ignoring collapsed range");
+      continue;
+    }
     const extent = getSharpieExtent(range);
     for (const cb of callbacks) {
       cb(extent);
