@@ -130,7 +130,6 @@ function delegate() {
   for (let i = 0; i < selection.rangeCount; i++) {
     const range = selection.getRangeAt(i);
     const extent = getSharpieExtent(range);
-    _debug(range, extent);
     for (const cb of callbacks) {
       cb(extent);
     }
