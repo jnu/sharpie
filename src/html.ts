@@ -1,6 +1,5 @@
 import {Annotation, Markup, Redaction, StyleAttributes} from "./annotation";
 import {defaults, _debug, _error, sortedInsert} from "./util";
-import {IDAllocator} from "./id_allocator";
 
 /**
  * Options to control how annotations are rendered onto text.
@@ -255,9 +254,6 @@ function openTag(annotation: Annotation, annotationId: string, part: number): st
 
   // className string
   const cls = ["sharpie-annotation", `sharpie-type-${annotation.type}`];
-  if (annotationId) {
-    cls.push(`sharpie-id-${annotationId}`);
-  }
   if (annotation.meta && annotation.meta.htmlClassName) {
     cls.push(annotation.meta.htmlClassName);
   }
@@ -360,6 +356,7 @@ function writeMetaData(text: string, meta: Map<string, OpenedTagMeta>) {
       `data-sharpie-start="${data.start}"`,
       `data-sharpie-end="${data.end}"`,
       `data-sharpie-warp="${data.warp}"`,
+      `data-sharpie-id="${data.id}"`,
     ].join(" ");
 
     // Cut the text at the offset where the opening tag starts to ensure that
@@ -378,16 +375,22 @@ function writeMetaData(text: string, meta: Map<string, OpenedTagMeta>) {
  */
 export function renderToString(text: string, annotations: Annotation[], opts?: RenderOpts): string {
   opts = defaults(opts, {autoParagraph: true});
+  let inferred: Annotation[] = [];
 
   if (opts.autoParagraph) {
     _debug("Generating HTML paragraph break annotations");
-    annotations = [...annotations, ...inferParagraphBreaks(text)];
+    inferred = inferParagraphBreaks(text);
   }
 
-  const ids = new IDAllocator<Annotation>();
+  const ids = new WeakMap<Annotation, string>();
   const warpMap = new WeakMap<Annotation, number>();
+  // Create IDs based on the annotation input order. This lets other code
+  // build on top of the markup and interact with annotations.
+  annotations.forEach((atn, i) => ids.set(atn, `${i}`));
+  inferred.forEach((atn, i) => ids.set(atn, `inferred-${i}`));
+
   // Queue for annotations to apply
-  const sorted = annotations.sort(sortAnnotations);
+  const sorted = [...annotations, ...inferred].sort(sortAnnotations);
   // Stack of annotations that have been opened
   const openOrderStack: OpenedTagMeta[] = [];
   // Annotations stack ordered by end position. This is used to detect
@@ -557,7 +560,7 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
 
       const opened = {
         annotation: atn,
-        id: ids.getId(atn),
+        id: ids.get(atn),
         part: opening.part,
         start: pointer,
         end: -1,
@@ -566,7 +569,7 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
       };
 
       // Write open tag
-      output += openTag(atn, ids.getId(atn), opening.part);
+      output += openTag(atn, ids.get(atn), opening.part);
       const metaDataId = getMetaDataId(opened.id, opened.part);
       if (nodeMetaCache.has(metaDataId)) {
         _error("Overwriting node metadata", metaDataId);
