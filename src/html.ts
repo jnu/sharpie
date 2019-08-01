@@ -6,6 +6,92 @@ interface RenderOpts {
   autoParagraph?: boolean;
 }
 
+const BLOCK_TAGS = new Set([
+  "address",
+  "article",
+  "aside",
+  "blockquote",
+  "details",
+  "dialog",
+  "dd",
+  "div",
+  "dl",
+  "dt",
+  "fieldset",
+  "figcaption",
+  "figure",
+  "footer",
+  "form",
+  "h1", "h2", "h3", "h4", "h5", "h6",
+  "header",
+  "hgroup",
+  "hr",
+  "li",
+  "main",
+  "nav",
+  "ol",
+  "p",
+  "pre",
+  "section",
+  "table",
+  "ul",
+  ]);
+
+interface RedactionMeta {
+  redaction: Redaction;
+  output: string[];
+  extent: number;
+  cursor: number;
+}
+
+interface Opening {
+  annotation: Annotation;
+  tagName: string;
+  novel: boolean;
+  redaction?: RedactionMeta;
+}
+
+/**
+ * Sort the tags of simultaneously opening annotations.
+ *
+ * The sort order should:
+ *  1) be valid HTML;
+ *  2) preserve semantics of input annotations, and
+ *  3) look good
+ */
+function sortOpenings(a: Opening, b: Opening) {
+  const aType = a.annotation.type;
+  const bType = b.annotation.type;
+  const aTag = a.tagName.toLowerCase();
+  const bTag = b.tagName.toLowerCase();
+
+  // Always sort paragraph tags on the outside
+  if (aTag === "p") {
+    return -1;
+  } else if (bTag === "p") {
+    return 1;
+  }
+
+  // Sort highlights on the inside so they are visible
+  if (aType !== bType) {
+    if (aType === "highlight") {
+      return 1;
+    } else if (bType === "highlight") {
+      return -1;
+    }
+  }
+
+  // Sort block tags on the outside
+  if (BLOCK_TAGS.has(aTag)) {
+    return -1;
+  } else if (BLOCK_TAGS.has(bTag)) {
+    return 1;
+  }
+
+  // Lacking other conditions, preserve the input order.
+  return -1;
+}
+
 /**
  * Put annotations in a reasonable order for processing.
  */
@@ -110,8 +196,9 @@ function getFormatObject(annotation: Annotation): Object | undefined {
       return overrides;
     case "redaction":
       const fmt = defaults(overrides, {
-        bgColor: "black",
+        bgColor: "#000000",
         color: "white",
+        opacity: 0.8,
       });
       return {...fmt,
         "white-space": "pre-wrap",
@@ -236,12 +323,7 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
   // Stack of overlapping tags that need to be reopened.
   const reopen: Annotation[] = [];
   // Stack of open redactions and their state.
-  const openRedactions = [] as Array<{
-    redaction: Redaction;
-    output: string[];
-    extent: number;
-    cursor: number;
-  }>;
+  const openRedactions: RedactionMeta[] = [];
 
   // Generated output string (HTML)
   let output = "";
@@ -267,21 +349,24 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
       }
     }
 
-    // Open any new tags at this position. Note that <= is used so that the
-    // overlapping tags that need reopening are processed here.
+    // A queue for all tags being opened at this position (whether it's for
+    // a new tag or a reopened tag). This queue will be sorted in priority
+    // order for opening.
+    const openingQueue: Opening[] = [];
+
+    // Process newly opening tags
     while (sorted.length > 0 && sorted[0].start === pointer) {
       const atn = sorted.shift();
-      sortedInsert(endOrderStack, atn, a => a.end);
-      openOrderStack.unshift(atn);
+
       // Warp represents the number of characters in the real text are
       // represented by one character of output text in this range. It's added
       // so libraries operating on annotated text can compute positions
       // correctly despite annotation that may have altered the surface text.
       let warp = 1;
-      // Store this redaction if not currently redacting, or if this one goes
-      // longer. The last / longest redaction takes precedence on overlaps.
+      let redaction: RedactionMeta | undefined;
+
+      // Construct a new redaction object and compute warp factor as necessary
       if (atn.type === "redaction") {
-        const space = "&nbsp;";
         // Choose the effective redaction width by taking the explicitly
         // defined extent if there is one, or the max of the annotation span
         // and the redaction content length if not.
@@ -289,28 +374,53 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
         const extent = atn.extent ?
           atn.extent :
           Math.max(annotationExtent, (atn.content || "").length);
-        openRedactions.push({
+        redaction = {
           redaction: atn,
-          output: createPaddedOutputBuffer(atn.content, extent, space),
+          output: createPaddedOutputBuffer(atn.content, extent, "&nbsp;"),
           extent,
           cursor: 0,
-        });
+        };
         // Compute warp factor: redactions can alter screen text length
         warp = annotationExtent / extent;
       }
+
       // Save metadata
       warpMap.set(atn, warp);
-      // Write open tag
-      output += openTag(atn, ids.getId(atn), pointer, warp);
+
+      openingQueue.push({
+        annotation: atn,
+        tagName: getTagName(atn),
+        novel: true,
+        redaction,
+      });
     }
 
-    // Reopen overlapping tags
+    // Process re-opening tags
     while (reopen.length > 0) {
       const atn = reopen.shift();
-      output += openTag(atn, ids.getId(atn), pointer, warpMap.get(atn));
+      openingQueue.push({
+        annotation: atn,
+        tagName: getTagName(atn),
+        novel: false,
+      });
+    }
+
+    // Write out all opening tags in the correct order
+    openingQueue.sort(sortOpenings);
+    while (openingQueue.length > 0) {
+      const opening = openingQueue.shift();
+      const atn = opening.annotation;
+
+      if (opening.novel) {
+        sortedInsert(endOrderStack, atn, a => a.end);
+        if (opening.redaction) {
+          openRedactions.unshift(opening.redaction);
+        }
+      }
+
       openOrderStack.unshift(atn);
-      // NB: No need to add this annotation to any of the other stacks, since
-      // it was only ever popped from open-order.
+      // Write open tag
+      output += openTag(atn, ids.getId(atn), pointer, warpMap.get(atn));
     }
 
     // Clean up closing redactions
