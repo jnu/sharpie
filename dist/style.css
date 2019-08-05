@@ -1,0 +1,19 @@
+/**
+ * Default sharpie annotation styles.
+ */
+
+.sharpie-type-highlight {
+  background-color: #fffa129c;
+}
+
+.sharpie-type-redaction {
+  background-color: #000000dd;
+  color: #ffffff;
+}
+
+.sharpie-type-note {
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: #9a0000;
+  text-decoration-skip-ink: none;
+}
