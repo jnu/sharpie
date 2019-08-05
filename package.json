@@ -1,6 +1,6 @@
 {
   "name": "sharpie",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "JavaScript text annotation library",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -20,14 +20,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jnu/sharpie.git"
+    "url": "git+https://github.com/stanford-policylab/sharpie.git"
   },
   "author": "Joe Nudell",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/jnu/sharpie/issues"
+    "url": "https://github.com/stanford-policylab/sharpie/issues"
   },
-  "homepage": "https://github.com/jnu/sharpie#readme",
+  "homepage": "https://github.com/stanford-policylab/sharpie#readme",
   "devDependencies": {
     "@babel/core": "^7.5.5",
     "@babel/preset-env": "^7.5.5",
@@ -45,7 +45,5 @@
     "webpack": "^4.38.0",
     "webpack-cli": "^3.3.6"
   },
-  "dependencies": {
-    "xpath-range": "^1.1.1"
-  }
+  "dependencies": {}
 }

@@ -1,5 +1,4 @@
 import {_debug} from "./util";
-const xpr = require("xpath-range");
 
 /**
  * Track container elements where selection events can be handled.
