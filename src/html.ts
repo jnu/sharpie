@@ -367,6 +367,12 @@ function writeMetaData(text: string, meta: Map<string, OpenedTagMeta>) {
  * Render the given text into a string of HTML.
  */
 export function renderToString(text: string, annotations: Annotation[], opts?: RenderOpts): string {
+  // Bail if the input text is missing
+  if (text === null || text === undefined) {
+    _debug("Input missing, bailing out of render");
+    return "";
+  }
+
   opts = defaults(opts, {autoParagraph: true});
   let inferred: Annotation[] = [];
 

@@ -5,6 +5,11 @@ import {renderToString} from "./html";
 
 describe("renderToString", () => {
 
+  it("skips render if input is null or undefined", () => {
+    assert.equal(renderToString(null, []), "");
+    assert.equal(renderToString(undefined, []), "");
+  });
+
   it("Returns text directly with no annotations", () => {
     assert.equal(renderToString("Foo", [], {autoParagraph: false}), "Foo");
   });

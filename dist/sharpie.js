@@ -591,6 +591,12 @@ function writeMetaData(text, meta) {
 }
 
 function renderToString(text, annotations, opts) {
+  if (text === null || text === undefined) {
+    util_1._debug("Input missing, bailing out of render");
+
+    return "";
+  }
+
   opts = util_1.defaults(opts, {
     autoParagraph: true
   });
