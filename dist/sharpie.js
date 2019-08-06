@@ -394,14 +394,14 @@ function sortAnnotations(a, b) {
   return a.start < b.start ? -1 : 1;
 }
 
-function createParagraphAnnotation(start, end) {
+function createParagraphAnnotation(start, end, withClass) {
   return {
     start: start,
     end: end,
     type: "markup",
     meta: {
       htmlTagName: "p",
-      htmlClassName: "auto-para-break"
+      htmlClassName: withClass ? "auto-para-break" : undefined
     }
   };
 }
@@ -428,18 +428,18 @@ function createStyleString(style) {
   return styles.join("; ") + ";";
 }
 
-function inferParagraphBreaks(text) {
+function inferParagraphBreaks(text, opts) {
   var annotations = [];
   var breakPattern = /\n/g;
   var lastPoint = 0;
   var br = null;
 
   while ((br = breakPattern.exec(text)) !== null) {
-    annotations.push(createParagraphAnnotation(lastPoint, br.index));
+    annotations.push(createParagraphAnnotation(lastPoint, br.index, !opts.simpleHTML));
     lastPoint = br.index;
   }
 
-  annotations.push(createParagraphAnnotation(lastPoint, text.length));
+  annotations.push(createParagraphAnnotation(lastPoint, text.length, !opts.simpleHTML));
   return annotations;
 }
 
@@ -468,7 +468,7 @@ function getFormatObject(annotation) {
   }
 }
 
-function openTag(annotation, annotationId, part) {
+function openTag(annotation, annotationId, part, opts) {
   var tagName = getTagName(annotation);
   var attrs = [];
   var format = getFormatObject(annotation);
@@ -485,14 +485,17 @@ function openTag(annotation, annotationId, part) {
     attrs.push(["id", annotation.meta.id]);
   }
 
-  var cls = ["sharpie-annotation", "sharpie-type-".concat(annotation.type)];
+  var cls = opts.simpleHTML ? [] : ["sharpie-annotation", "sharpie-type-".concat(annotation.type)];
 
   if (annotation.meta && annotation.meta.htmlClassName) {
     cls.push(annotation.meta.htmlClassName);
   }
 
-  attrs.push(["class", cls.join(" ")]);
-  var metaDataId = getMetaDataId(annotationId, part);
+  if (cls.length) {
+    attrs.push(["class", cls.join(" ")]);
+  }
+
+  var metaDataId = opts.simpleHTML ? "" : " ".concat(getMetaDataId(annotationId, part));
   var attrString = attrs.map(function (_ref) {
     var _ref2 = _slicedToArray(_ref, 2),
         k = _ref2[0],
@@ -500,7 +503,8 @@ function openTag(annotation, annotationId, part) {
 
     return "".concat(k, "=\"").concat(v, "\"");
   }).join(" ");
-  return "<".concat(tagName, " ").concat(metaDataId).concat(attrString ? " " + attrString : "", ">");
+  var attrStringNice = attrString ? " ".concat(attrString) : "";
+  return "<".concat(tagName).concat(metaDataId).concat(attrStringNice, ">");
 }
 
 function closeTag(annotation, defaultTag) {
@@ -598,14 +602,15 @@ function renderToString(text, annotations, opts) {
   }
 
   opts = util_1.defaults(opts, {
-    autoParagraph: true
+    autoParagraph: true,
+    simpleHTML: false
   });
   var inferred = [];
 
   if (opts.autoParagraph) {
     util_1._debug("Generating HTML paragraph break annotations");
 
-    inferred = inferParagraphBreaks(text);
+    inferred = inferParagraphBreaks(text, opts);
   }
 
   var ids = new WeakMap();
@@ -761,7 +766,7 @@ function renderToString(text, annotations, opts) {
         warp: warpMap.get(_atn),
         outputOffsetPos: output.length
       };
-      output += openTag(_atn, ids.get(_atn), opening.part);
+      output += openTag(_atn, ids.get(_atn), opening.part, opts);
       var metaDataId = getMetaDataId(opened.id, opened.part);
 
       if (nodeMetaCache.has(metaDataId)) {
@@ -794,7 +799,8 @@ function renderToString(text, annotations, opts) {
     }
   }
 
-  return writeMetaData(output, nodeMetaCache);
+  var finalOutput = opts.simpleHTML ? output : writeMetaData(output, nodeMetaCache);
+  return finalOutput;
 }
 
 exports.renderToString = renderToString;

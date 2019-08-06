@@ -5,6 +5,15 @@ import {renderToString} from "./html";
 
 describe("renderToString", () => {
 
+  it("Writes simplified html strings when simpleHTML is passed", () => {
+    const atns: Annotation[] = [
+      {start: 1, end: 2, type: "redaction", content: "*"},
+    ];
+    assert.equal(renderToString("Foo\nBar", atns, {simpleHTML: true}),
+`<p>F<span style="white-space: pre-wrap; word-break: break-word;">*</span>o</p><p>
+Bar</p>`);
+  });
+
   it("skips render if input is null or undefined", () => {
     assert.equal(renderToString(null, []), "");
     assert.equal(renderToString(undefined, []), "");

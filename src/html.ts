@@ -6,6 +6,7 @@ import {defaults, _debug, _error, sortedInsert} from "./util";
  */
 export interface RenderOpts {
   autoParagraph?: boolean;
+  simpleHTML?: boolean;
 }
 
 /**
@@ -130,14 +131,14 @@ function sortAnnotations(a: Annotation, b: Annotation): number {
 /**
  * Create a dummy annotation representing an HTML paragraph span.
  */
-function createParagraphAnnotation(start: number, end: number): Markup {
+function createParagraphAnnotation(start: number, end: number, withClass: boolean): Markup {
   return {
     start,
     end,
     type: "markup",
     meta: {
       htmlTagName: "p",
-      htmlClassName: "auto-para-break",
+      htmlClassName: withClass ? "auto-para-break" : undefined,
     },
   };
 }
@@ -176,7 +177,7 @@ function createStyleString(style: StyleAttributes) {
 /**
  * Add paragraph break annotations to a piece of text.
  */
-function inferParagraphBreaks(text: string): Markup[] {
+function inferParagraphBreaks(text: string, opts: RenderOpts): Markup[] {
   const annotations: Markup[] = [];
   const breakPattern = /\n/g;
   let lastPoint = 0;
@@ -184,12 +185,12 @@ function inferParagraphBreaks(text: string): Markup[] {
   // Add paragraph annotations wherever there's a newline
   let br: RegExpExecArray | null = null;
   while ((br = breakPattern.exec(text)) !== null) {
-    annotations.push(createParagraphAnnotation(lastPoint, br.index));
+    annotations.push(createParagraphAnnotation(lastPoint, br.index, !opts.simpleHTML));
     lastPoint = br.index;
   }
 
   // Push at least one annotation that closes at the end of the text.
-  annotations.push(createParagraphAnnotation(lastPoint, text.length));
+  annotations.push(createParagraphAnnotation(lastPoint, text.length, !opts.simpleHTML));
 
   return annotations;
 }
@@ -227,7 +228,7 @@ function getFormatObject(annotation: Annotation): Object {
 /**
  * Generate opening tag string for the annotation.
  */
-function openTag(annotation: Annotation, annotationId: string, part: number): string {
+function openTag(annotation: Annotation, annotationId: string, part: number, opts: RenderOpts): string {
   const tagName = getTagName(annotation);
   const attrs: Array<[string, string]> = [];
 
@@ -246,17 +247,23 @@ function openTag(annotation: Annotation, annotationId: string, part: number): st
   }
 
   // className string
-  const cls = ["sharpie-annotation", `sharpie-type-${annotation.type}`];
+  const cls = opts.simpleHTML ?
+    [] :
+    ["sharpie-annotation", `sharpie-type-${annotation.type}`];
   if (annotation.meta && annotation.meta.htmlClassName) {
     cls.push(annotation.meta.htmlClassName);
   }
-  attrs.push(["class", cls.join(" ")]);
+  if (cls.length) {
+    attrs.push(["class", cls.join(" ")]);
+  }
 
   // Write the metadata ID so that it can be replaced later with data
   // attributes once they are all known.
-  const metaDataId = getMetaDataId(annotationId, part);
+  const metaDataId = opts.simpleHTML ?
+    "" : ` ${getMetaDataId(annotationId, part)}`;
   const attrString = attrs.map(([k, v]) => `${k}="${v}"`).join(" ");
-  return `<${tagName} ${metaDataId}${attrString ? " " + attrString : ""}>`;
+  const attrStringNice = attrString ? ` ${attrString}` : "";
+  return `<${tagName}${metaDataId}${attrStringNice}>`;
 }
 
 /**
@@ -365,6 +372,12 @@ function writeMetaData(text: string, meta: Map<string, OpenedTagMeta>) {
 
 /**
  * Render the given text into a string of HTML.
+ *
+ * Options are:
+ *  - autoParagraph: Automatically add markup annotations for \n with <p></p>.
+ *                   Default is true.
+ *  - simpleHTML: Write simple HTML without Sharpie metadata attributes.
+ *                   Default is false.
  */
 export function renderToString(text: string, annotations: Annotation[], opts?: RenderOpts): string {
   // Bail if the input text is missing
@@ -373,12 +386,12 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
     return "";
   }
 
-  opts = defaults(opts, {autoParagraph: true});
+  opts = defaults(opts, {autoParagraph: true, simpleHTML: false});
   let inferred: Annotation[] = [];
 
   if (opts.autoParagraph) {
     _debug("Generating HTML paragraph break annotations");
-    inferred = inferParagraphBreaks(text);
+    inferred = inferParagraphBreaks(text, opts);
   }
 
   const ids = new WeakMap<Annotation, string>();
@@ -568,7 +581,7 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
       };
 
       // Write open tag
-      output += openTag(atn, ids.get(atn), opening.part);
+      output += openTag(atn, ids.get(atn), opening.part, opts);
       const metaDataId = getMetaDataId(opened.id, opened.part);
       if (nodeMetaCache.has(metaDataId)) {
         _error("Overwriting node metadata", metaDataId);
@@ -608,8 +621,11 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
     }
   }
 
+  const finalOutput = opts.simpleHTML ?
+    output : writeMetaData(output, nodeMetaCache);
+
   // Ta-da!
-  return writeMetaData(output, nodeMetaCache);
+  return finalOutput;
 }
 
 /**
