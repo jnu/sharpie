@@ -4,8 +4,9 @@
   "description": "JavaScript text annotation library",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
+  "bin": "./bin/cli.js",
   "scripts": {
-    "clean": "rm -rf dist && rm -rf lib && rm -rf docs",
+    "clean": "rm -rf dist && rm -rf lib && rm -rf docs && rm -rf bin",
     "build-lib": "tsc --declaration",
     "build-dist": "webpack",
     "build-min": "NODE_ENV=production webpack",
