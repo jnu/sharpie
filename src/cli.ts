@@ -122,8 +122,7 @@ function main() {
     simpleHTML: args.get("simple") as boolean,
   };
   const result = renderToString(text, JSON.parse(atns), opts);
-  // tslint:disable-next-line:no-console
-  console.log(result);
+  process.stdout.write(result);
 }
 
 if (require.main === module) {
