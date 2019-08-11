@@ -1,6 +1,6 @@
 {
   "name": "sharpie",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "JavaScript text annotation library",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",

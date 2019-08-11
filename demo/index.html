@@ -222,13 +222,14 @@ fit into the slippers at once.`;
       ];
 
     Sharpie.renderHTML(document.getElementById("sample"), txt, annotations);
-    Sharpie.watch(document.getElementById("sample"), ([start, end]) => {
+    Sharpie.watch(document.getElementById("sample"), ([start, end], e) => {
       annotations.push({
         type: "highlight",
         start,
         end,
       });
       console.log("New annotation:", annotations[annotations.length - 1]);
+      console.log("Mouse event:", e);
       Sharpie.renderHTML(document.getElementById("sample"), txt, annotations);
     });
 

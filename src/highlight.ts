@@ -115,7 +115,7 @@ function getSharpieExtent(range: Range) {
 /**
  * Global event handler that processes selections on mouse events.
  */
-function delegate() {
+function delegate(e: MouseEvent) {
   const selection = window.getSelection();
 
   if (selection.isCollapsed) {
@@ -137,7 +137,7 @@ function delegate() {
     }
     const extent = getSharpieExtent(range);
     for (const cb of callbacks) {
-      cb(extent);
+      cb(extent, e);
     }
   }
 }

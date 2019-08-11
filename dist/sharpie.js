@@ -219,7 +219,7 @@ function getSharpieExtent(range) {
   return [Math.floor(start), Math.ceil(end)];
 }
 
-function delegate() {
+function delegate(e) {
   var selection = window.getSelection();
 
   if (selection.isCollapsed) {
@@ -253,7 +253,7 @@ function delegate() {
     try {
       for (var _iterator2 = callbacks[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
         var cb = _step2.value;
-        cb(extent);
+        cb(extent, e);
       }
     } catch (err) {
       _didIteratorError2 = true;
