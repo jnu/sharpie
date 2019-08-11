@@ -321,6 +321,20 @@ function unwatch(element, handler) {
 
 exports.unwatch = unwatch;
 
+function clearSelection() {
+  if (window.getSelection) {
+    var sel = window.getSelection();
+
+    if (sel.empty) {
+      sel.empty();
+    } else if (sel.removeAllRanges) {
+      sel.removeAllRanges();
+    }
+  }
+}
+
+exports.clearSelection = clearSelection;
+
 /***/ }),
 
 /***/ "./src/html.ts":
@@ -834,6 +848,7 @@ Object.defineProperty(exports, "__esModule", {
 
 var highlight_1 = __webpack_require__(/*! ./highlight */ "./src/highlight.ts");
 
+exports.clearSelection = highlight_1.clearSelection;
 exports.watch = highlight_1.watch;
 exports.unwatch = highlight_1.unwatch;
 

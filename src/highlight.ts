@@ -191,3 +191,19 @@ export function unwatch(element: HTMLElement, handler?: Function) {
   watchList.delete(element);
   return true;
 }
+
+/**
+ * Convenience function for clearing current selection.
+ *
+ * Works in all modern browsers (IE 9+).
+ */
+export function clearSelection() {
+  if (window.getSelection) {
+    const sel = window.getSelection();
+    if (sel.empty) {
+      sel.empty();
+    } else if (sel.removeAllRanges) {
+      sel.removeAllRanges();
+    }
+  }
+}

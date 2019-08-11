@@ -35,9 +35,6 @@ export interface Redaction extends Extent, Attributed {
 export interface Highlight extends Extent, Attributed {
   type: "highlight";
   comment?: string;
-  backgroundColor?: string;
-  color?: string;
-  opacity?: number;
 }
 
 export interface Note extends Extent, Attributed {
