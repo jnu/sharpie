@@ -193,6 +193,10 @@ function createHoverDelegate(eventType: SharpieEvent) {
     }
 
     const callbacks = getWatchHandlers(eventType, target);
+    if (!callbacks) {
+      return;
+    }
+
     for (const cb of callbacks) {
       cb(parsedId, e);
     }
