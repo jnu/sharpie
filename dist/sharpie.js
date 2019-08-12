@@ -112,19 +112,20 @@ Object.defineProperty(exports, "__esModule", {
 
 var util_1 = __webpack_require__(/*! ./util */ "./src/util.ts");
 
-var watchList = new Map();
+var eventHandlerRegistry = new Map();
 
-function getWatchHandlers(childNode) {
+function getWatchHandlers(eventType, childNode) {
   var _iteratorNormalCompletion = true;
   var _didIteratorError = false;
   var _iteratorError = undefined;
 
   try {
-    for (var _iterator = watchList.keys()[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+    for (var _iterator = eventHandlerRegistry.keys()[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
       var el = _step.value;
 
       if (el.contains(childNode)) {
-        return watchList.get(el);
+        var registry = eventHandlerRegistry.get(el);
+        return registry.get(eventType);
       }
     }
   } catch (err) {
@@ -145,8 +146,8 @@ function getWatchHandlers(childNode) {
   return undefined;
 }
 
-function resolveHandlers(selection) {
-  var anchorCBs = getWatchHandlers(selection.anchorNode);
+function resolveHandlersForSelection(eventType, selection) {
+  var anchorCBs = getWatchHandlers(eventType, selection.anchorNode);
 
   if (!anchorCBs) {
     util_1._debug("Selection starts outside of watched container");
@@ -154,7 +155,7 @@ function resolveHandlers(selection) {
     return undefined;
   }
 
-  var focusCBs = getWatchHandlers(selection.focusNode);
+  var focusCBs = getWatchHandlers(eventType, selection.focusNode);
 
   if (!focusCBs) {
     util_1._debug("Selection ends outside of watched container");
@@ -219,7 +220,7 @@ function getSharpieExtent(range) {
   return [Math.floor(start), Math.ceil(end)];
 }
 
-function delegate(e) {
+function selectDelegate(e) {
   var selection = window.getSelection();
 
   if (selection.isCollapsed) {
@@ -228,7 +229,7 @@ function delegate(e) {
     return;
   }
 
-  var callbacks = resolveHandlers(selection);
+  var callbacks = resolveHandlersForSelection("select", selection);
 
   if (!callbacks) {
     util_1._debug("Ignoring selection due to overflow");
@@ -272,6 +273,63 @@ function delegate(e) {
   }
 }
 
+function createHoverDelegate(eventType) {
+  return function _hoverDelegate(e) {
+    var target = e.target;
+
+    if (!target.classList.contains("sharpie-annotation")) {
+      return;
+    }
+
+    var sharpieId = target.dataset.sharpieId;
+
+    if (!sharpieId) {
+      util_1._debug("Sharpie ID not set on event target");
+
+      return;
+    }
+
+    if (sharpieId.substr(0, 9) === "inferred-") {
+      return;
+    }
+
+    var parsedId = +sharpieId;
+
+    if (parsedId !== parsedId) {
+      util_1._debug("Could not parse sharpie ID:", sharpieId);
+
+      return;
+    }
+
+    var callbacks = getWatchHandlers(eventType, target);
+    var _iteratorNormalCompletion3 = true;
+    var _didIteratorError3 = false;
+    var _iteratorError3 = undefined;
+
+    try {
+      for (var _iterator3 = callbacks[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+        var cb = _step3.value;
+        cb(parsedId, e);
+      }
+    } catch (err) {
+      _didIteratorError3 = true;
+      _iteratorError3 = err;
+    } finally {
+      try {
+        if (!_iteratorNormalCompletion3 && _iterator3["return"] != null) {
+          _iterator3["return"]();
+        }
+      } finally {
+        if (_didIteratorError3) {
+          throw _iteratorError3;
+        }
+      }
+    }
+  };
+}
+
+var hoverInDelegate = createHoverDelegate("hoverIn");
+var hoverOutDelegate = createHoverDelegate("hoverOut");
 var init = false;
 
 function initialize() {
@@ -279,43 +337,73 @@ function initialize() {
     return;
   }
 
-  window.addEventListener("mouseup", delegate);
+  window.addEventListener("mouseup", selectDelegate);
+  window.addEventListener("mouseover", hoverInDelegate);
+  window.addEventListener("mouseout", hoverOutDelegate);
   init = true;
 }
 
-function watch(element, handler) {
-  initialize();
-
-  if (!watchList.has(element)) {
-    watchList.set(element, new Set());
+function getEventHandlers(registry, eventType) {
+  if (!registry.has(eventType)) {
+    registry.set(eventType, new Set());
   }
 
-  watchList.get(element).add(handler);
+  return registry.get(eventType);
+}
+
+function watch(element) {
+  initialize();
+
+  if (!eventHandlerRegistry.has(element)) {
+    eventHandlerRegistry.set(element, new Map());
+  }
+
+  var registry = eventHandlerRegistry.get(element);
+  var ctl = {
+    hoverIn: function hoverIn(handler) {
+      getEventHandlers(registry, "hoverIn").add(handler);
+      return ctl;
+    },
+    hoverOut: function hoverOut(handler) {
+      getEventHandlers(registry, "hoverOut").add(handler);
+      return ctl;
+    },
+    select: function select(handler) {
+      getEventHandlers(registry, "select").add(handler);
+      return ctl;
+    }
+  };
+  return ctl;
 }
 
 exports.watch = watch;
 
-function unwatch(element, handler) {
-  if (handler) {
-    var list = watchList.get(element);
+function unwatch(element, eventType, handler) {
+  var registry = eventHandlerRegistry.get(element);
 
-    if (!list) {
-      return false;
-    }
-
-    if (!list.has(handler)) {
-      return false;
-    }
-
-    list["delete"](handler);
-    return true;
-  }
-
-  if (!watchList.has(element)) {
+  if (!registry) {
     return false;
   }
 
-  watchList["delete"](element);
+  if (handler) {
+    var handlers = registry.get(eventType);
+
+    if (!handlers) {
+      return false;
+    }
+
+    var hasHandlerToDrop = handlers.has(handler);
+    handlers["delete"](handler);
+    return hasHandlerToDrop;
+  }
+
+  if (eventType) {
+    var hasHandlersToDrop = registry.has(eventType);
+    registry["delete"](eventType);
+    return hasHandlersToDrop;
+  }
+
+  eventHandlerRegistry["delete"](element);
   return true;
 }
 
