@@ -4,10 +4,11 @@ import {_debug} from "./util";
  * Events that Sharpie supports.
  *
  * - "select" is an abstraction over mouse clicks
+ * - "deselect" is also an abstraction oer mouse clicks
  * - "hoverIn" is an abstraction over mouseover events
  * - "hoverOut" is an abstraction over mouseout events
  */
-export type SharpieEvent = "select" | "hoverIn" | "hoverOut";
+export type SharpieEvent = "deselect" | "select" | "hoverIn" | "hoverOut";
 
 /**
  * Map from a sharpie event type to associated handlers.
@@ -135,14 +136,18 @@ function getSharpieExtent(range: Range) {
 function selectDelegate(e: MouseEvent) {
   const selection = window.getSelection();
 
-  if (selection.isCollapsed) {
-    _debug("Ignoring collapsed selection");
+  const selectCallbacks = resolveHandlersForSelection("select", selection);
+  if (!selectCallbacks) {
+    _debug("Ignoring selection due to overflow");
     return;
   }
+  const deselectCallbacks = resolveHandlersForSelection("deselect", selection);
 
-  const callbacks = resolveHandlersForSelection("select", selection);
-  if (!callbacks) {
-    _debug("Ignoring selection due to overflow");
+  if (selection.isCollapsed) {
+    _debug("Firing deselect callbacks");
+    for (const cb of (deselectCallbacks || [])) {
+      cb(e);
+    }
     return;
   }
 
@@ -153,7 +158,7 @@ function selectDelegate(e: MouseEvent) {
       continue;
     }
     const extent = getSharpieExtent(range);
-    for (const cb of callbacks) {
+    for (const cb of selectCallbacks) {
       cb(extent, e);
     }
   }
@@ -264,6 +269,10 @@ export function watch(element: HTMLElement) {
       getEventHandlers(registry, "select").add(handler);
       return ctl;
     },
+    deselect: (handler: Function) => {
+      getEventHandlers(registry, "deselect").add(handler);
+      return ctl;
+    },
   };
 
   return ctl;
@@ -304,9 +313,13 @@ export function unwatch(element: HTMLElement, eventType?: SharpieEvent, handler?
 }
 
 /**
- * Convenience function for clearing current selection.
+ * Convenience function for clearing current browser selection.
  *
  * Works in all modern browsers (IE 9+).
+ *
+ * NOTE: This only clears the browser's GUI selection. The use case is for
+ * adding a custom annotation to replace the browser's visual selection.
+ * Calling this does not fire the "deselect" event.
  */
 export function clearSelection() {
   if (window.getSelection) {
