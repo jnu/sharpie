@@ -18,6 +18,12 @@
     h1, h2, h3, h4, h5, h6 {
       font-family: 'Sail', cursive;
     }
+    #modal {
+      position: absolute;
+      background-color: #fafafaaa;
+      border: thin solid black;
+      pointer-events: none;
+    }
   </style>
   <body>
     <div id="sample"></div>
@@ -222,17 +228,40 @@ fit into the slippers at once.`;
       ];
 
     Sharpie.renderHTML(document.getElementById("sample"), txt, annotations);
-    Sharpie.watch(document.getElementById("sample"), ([start, end], e) => {
-      annotations.push({
-        type: "highlight",
-        start,
-        end,
+    Sharpie
+      .watch(document.getElementById("sample"))
+      .select(([start, end], e) => {
+        annotations.push({
+          type: "highlight",
+          start,
+          end,
+        });
+        console.log("New annotation:", annotations[annotations.length - 1]);
+        console.log("Mouse event:", e);
+        Sharpie.renderHTML(document.getElementById("sample"), txt, annotations);
+      })
+      .hoverIn((id, e) => {
+        let modal = document.getElementById("modal");
+        if (!modal) {
+          modal = document.createElement("div");
+          modal.id = "modal";
+          document.body.appendChild(modal);
+        }
+        modal.innerHTML = JSON.stringify(annotations[id]);
+        const bounds = e.target.getBoundingClientRect();
+        const topDelta = 15;
+        const top = bounds.y < topDelta ?
+            bounds.y + topDelta : bounds.y - topDelta;
+        modal.style.top = `${window.scrollY + top}px`;
+        modal.style.left = `${bounds.x}px`;
+      })
+      .hoverOut((id, e)=> {
+        const modal = document.getElementById("modal");
+        if (!modal) {
+          return;
+        }
+        document.body.removeChild(modal);
       });
-      console.log("New annotation:", annotations[annotations.length - 1]);
-      console.log("Mouse event:", e);
-      Sharpie.renderHTML(document.getElementById("sample"), txt, annotations);
-    });
-
     </script>
   </body>
 </html>

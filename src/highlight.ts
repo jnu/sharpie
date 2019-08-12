@@ -1,19 +1,36 @@
 import {_debug} from "./util";
 
 /**
+ * Events that Sharpie supports.
+ *
+ * - "select" is an abstraction over mouse clicks
+ * - "hoverIn" is an abstraction over mouseover events
+ * - "hoverOut" is an abstraction over mouseout events
+ */
+export type SharpieEvent = "select" | "hoverIn" | "hoverOut";
+
+/**
+ * Map from a sharpie event type to associated handlers.
+ */
+type EventHandlerRegistry = Map<SharpieEvent, Set<Function>>;
+
+/**
  * Track container elements where selection events can be handled.
  */
-const watchList = new Map<HTMLElement, Set<Function>>();
+const eventHandlerRegistry = new Map<HTMLElement, EventHandlerRegistry>();
 
 /**
  * Get the handlers to execute for the given child based on its container.
  *
- * Might return undefined if no container under watch contains the node.
+ * Might return undefined if no container under watch contains the node, or
+ * if the node is under watch but no handlers have been registered for the
+ * given event.
  */
-function getWatchHandlers(childNode: Node) {
-  for (const el of watchList.keys()) {
+function getWatchHandlers(eventType: SharpieEvent, childNode: Node) {
+  for (const el of eventHandlerRegistry.keys()) {
     if (el.contains(childNode)) {
-      return watchList.get(el);
+      const registry = eventHandlerRegistry.get(el);
+      return registry.get(eventType);
     }
   }
   return undefined;
@@ -26,14 +43,14 @@ function getWatchHandlers(childNode: Node) {
  * any way will be ignored entirely. These edge cases could be handled in
  * other ways in the future.
  */
-function resolveHandlers(selection: Selection) {
-  const anchorCBs = getWatchHandlers(selection.anchorNode);
+function resolveHandlersForSelection(eventType: SharpieEvent, selection: Selection) {
+  const anchorCBs = getWatchHandlers(eventType, selection.anchorNode);
   if (!anchorCBs) {
     _debug("Selection starts outside of watched container");
     return undefined;
   }
 
-  const focusCBs = getWatchHandlers(selection.focusNode);
+  const focusCBs = getWatchHandlers(eventType, selection.focusNode);
   if (!focusCBs) {
     _debug("Selection ends outside of watched container");
     return undefined;
@@ -115,7 +132,7 @@ function getSharpieExtent(range: Range) {
 /**
  * Global event handler that processes selections on mouse events.
  */
-function delegate(e: MouseEvent) {
+function selectDelegate(e: MouseEvent) {
   const selection = window.getSelection();
 
   if (selection.isCollapsed) {
@@ -123,7 +140,7 @@ function delegate(e: MouseEvent) {
     return;
   }
 
-  const callbacks = resolveHandlers(selection);
+  const callbacks = resolveHandlersForSelection("select", selection);
   if (!callbacks) {
     _debug("Ignoring selection due to overflow");
     return;
@@ -143,52 +160,142 @@ function delegate(e: MouseEvent) {
 }
 
 /**
- * Set up global selection event handling (idempotent).
+ * Factory for hover event delegate.
+ */
+function createHoverDelegate(eventType: SharpieEvent) {
+  return function _hoverDelegate(e: MouseEvent) {
+    const target = e.target as HTMLElement;
+
+    if (!target.classList.contains("sharpie-annotation")) {
+      return;
+    }
+
+    // TODO(jnu): Make this aware of overlaps and return the set of IDs that
+    // the mouse is currently over.
+    const {sharpieId} = target.dataset;
+    if (!sharpieId) {
+      _debug("Sharpie ID not set on event target");
+      return;
+    }
+  
+    // Don't fire on auto-generated annotations.
+    // TODO(jnu): there may be a real use case for handling events on inferred
+    // annotations, but for now it's easier just to hide them from the user.
+    if (sharpieId.substr(0, 9) === "inferred-") {
+      return;
+    }
+
+    const parsedId = +sharpieId;
+    // Detect NaN from failed integer parsing
+    if (parsedId !== parsedId) {
+      _debug("Could not parse sharpie ID:", sharpieId);
+      return;
+    }
+
+    const callbacks = getWatchHandlers(eventType, target);
+    for (const cb of callbacks) {
+      cb(parsedId, e);
+    }
+  };
+}
+
+/**
+ * Global event handler for processing hover enter events
+ */
+const hoverInDelegate = createHoverDelegate("hoverIn");
+
+/**
+ * Global event handler for processing hover exit events
+ */
+const hoverOutDelegate = createHoverDelegate("hoverOut");
+
+/**
+ * Set up global mouse event handling (idempotent).
  */
 let init = false;
 function initialize() {
   if (init) {
     return;
   }
-  window.addEventListener("mouseup", delegate);
+  window.addEventListener("mouseup", selectDelegate);
+  window.addEventListener("mouseover", hoverInDelegate);
+  window.addEventListener("mouseout", hoverOutDelegate);
   init = true;
 }
 
 /**
- * Handle text selections within the given element.
+ * Get event handlers of the given type from the registry.
+ *
+ * Event handler sets are created lazily as requested.
  */
-export function watch(element: HTMLElement, handler: Function) {
-  initialize();
-  if (!watchList.has(element)) {
-    watchList.set(element, new Set());
+function getEventHandlers(registry: EventHandlerRegistry, eventType: SharpieEvent) {
+  if (!registry.has(eventType)) {
+    registry.set(eventType, new Set());
   }
-  watchList.get(element).add(handler);
+  return registry.get(eventType);
 }
 
 /**
- * Stop watching selection events on the given element.
+ * Handle mouse events within the given element.
+ */
+export function watch(element: HTMLElement) {
+  initialize();
+
+  if (!eventHandlerRegistry.has(element)) {
+    eventHandlerRegistry.set(element, new Map());
+  }
+
+  const registry = eventHandlerRegistry.get(element);
+
+  const ctl = {
+    hoverIn: (handler: Function) => {
+      getEventHandlers(registry, "hoverIn").add(handler);
+      return ctl;
+    },
+    hoverOut: (handler: Function) => {
+      getEventHandlers(registry, "hoverOut").add(handler);
+      return ctl;
+    },
+    select: (handler: Function) => {
+      getEventHandlers(registry, "select").add(handler);
+      return ctl;
+    },
+  };
+
+  return ctl;
+}
+
+/**
+ * Stop watching events on the given element.
  *
- * Pass a handler explicitly to only remove the specified callback.
+ * Additional parameters can be used to scope cleanup to a specific event
+ * type and further to a specific handler.
  *
  * Returns a boolean indicating whether cleanup was successful.
  */
-export function unwatch(element: HTMLElement, handler?: Function) {
-  if (handler) {
-    const list = watchList.get(element);
-    if (!list) {
-      return false;
-    }
-    if (!list.has(handler)) {
-      return false;
-    }
-    list.delete(handler);
-    return true;
-  }
-
-  if (!watchList.has(element)) {
+export function unwatch(element: HTMLElement, eventType?: SharpieEvent, handler?: Function) {
+  const registry = eventHandlerRegistry.get(element);
+  if (!registry) {
     return false;
   }
-  watchList.delete(element);
+
+  if (handler) {
+    const handlers = registry.get(eventType);
+    if (!handlers) {
+      return false;
+    }
+    const hasHandlerToDrop = handlers.has(handler);
+    handlers.delete(handler);
+    return hasHandlerToDrop;
+  }
+
+  if (eventType) {
+    const hasHandlersToDrop = registry.has(eventType);
+    registry.delete(eventType);
+    return hasHandlersToDrop;
+  }
+
+  eventHandlerRegistry.delete(element);
   return true;
 }
 
