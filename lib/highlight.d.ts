@@ -1,5 +1,6 @@
-export declare type SharpieEvent = "deselect" | "select" | "hoverIn" | "hoverOut";
+export declare type SharpieEvent = "click" | "deselect" | "select" | "hoverIn" | "hoverOut";
 export declare function watch(element: HTMLElement): {
+    click: (handler: Function) => any;
     hoverIn: (handler: Function) => any;
     hoverOut: (handler: Function) => any;
     select: (handler: Function) => any;

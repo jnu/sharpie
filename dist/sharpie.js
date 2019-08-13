@@ -299,7 +299,7 @@ function selectDelegate(e) {
   }
 }
 
-function createHoverDelegate(eventType) {
+function createMousePointDelegate(eventType) {
   return function _hoverDelegate(e) {
     var target = e.target;
 
@@ -359,8 +359,9 @@ function createHoverDelegate(eventType) {
   };
 }
 
-var hoverInDelegate = createHoverDelegate("hoverIn");
-var hoverOutDelegate = createHoverDelegate("hoverOut");
+var hoverInDelegate = createMousePointDelegate("hoverIn");
+var hoverOutDelegate = createMousePointDelegate("hoverOut");
+var clickDelegate = createMousePointDelegate("click");
 var init = false;
 
 function initialize() {
@@ -371,6 +372,7 @@ function initialize() {
   window.addEventListener("mouseup", selectDelegate);
   window.addEventListener("mouseover", hoverInDelegate);
   window.addEventListener("mouseout", hoverOutDelegate);
+  window.addEventListener("click", clickDelegate);
   init = true;
 }
 
@@ -391,6 +393,10 @@ function watch(element) {
 
   var registry = eventHandlerRegistry.get(element);
   var ctl = {
+    click: function click(handler) {
+      getEventHandlers(registry, "click").add(handler);
+      return ctl;
+    },
     hoverIn: function hoverIn(handler) {
       getEventHandlers(registry, "hoverIn").add(handler);
       return ctl;
