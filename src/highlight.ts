@@ -4,11 +4,12 @@ import {_debug} from "./util";
  * Events that Sharpie supports.
  *
  * - "select" is an abstraction over mouse clicks
- * - "deselect" is also an abstraction oer mouse clicks
+ * - "deselect" is also an abstraction over mouse clicks
+ * - "click" is another abstraction over mouse clicks
  * - "hoverIn" is an abstraction over mouseover events
  * - "hoverOut" is an abstraction over mouseout events
  */
-export type SharpieEvent = "deselect" | "select" | "hoverIn" | "hoverOut";
+export type SharpieEvent = "click" | "deselect" | "select" | "hoverIn" | "hoverOut";
 
 /**
  * Map from a sharpie event type to associated handlers.
@@ -165,9 +166,9 @@ function selectDelegate(e: MouseEvent) {
 }
 
 /**
- * Factory for hover event delegate.
+ * Factory for single-point mouse event delegate.
  */
-function createHoverDelegate(eventType: SharpieEvent) {
+function createMousePointDelegate(eventType: SharpieEvent) {
   return function _hoverDelegate(e: MouseEvent) {
     const target = e.target as HTMLElement;
 
@@ -211,12 +212,17 @@ function createHoverDelegate(eventType: SharpieEvent) {
 /**
  * Global event handler for processing hover enter events
  */
-const hoverInDelegate = createHoverDelegate("hoverIn");
+const hoverInDelegate = createMousePointDelegate("hoverIn");
 
 /**
  * Global event handler for processing hover exit events
  */
-const hoverOutDelegate = createHoverDelegate("hoverOut");
+const hoverOutDelegate = createMousePointDelegate("hoverOut");
+
+/**
+ * Global event handler for processing click events
+ */
+const clickDelegate = createMousePointDelegate("click");
 
 /**
  * Set up global mouse event handling (idempotent).
@@ -229,6 +235,7 @@ function initialize() {
   window.addEventListener("mouseup", selectDelegate);
   window.addEventListener("mouseover", hoverInDelegate);
   window.addEventListener("mouseout", hoverOutDelegate);
+  window.addEventListener("click", clickDelegate);
   init = true;
 }
 
@@ -257,18 +264,40 @@ export function watch(element: HTMLElement) {
   const registry = eventHandlerRegistry.get(element);
 
   const ctl = {
+    /**
+     * Handle click events on annotations.
+     *
+     * NOTE: Click and deselect events are not mutually exclusive. Clicks do
+     * not fire on select events, however.
+     */
+    click: (handler: Function) => {
+      getEventHandlers(registry, "click").add(handler);
+      return ctl;
+    },
+    /**
+     * Handle hover over events.
+     */
     hoverIn: (handler: Function) => {
       getEventHandlers(registry, "hoverIn").add(handler);
       return ctl;
     },
+    /**
+     * Handle hover out events.
+     */
     hoverOut: (handler: Function) => {
       getEventHandlers(registry, "hoverOut").add(handler);
       return ctl;
     },
+    /**
+     * Handle selection creation.
+     */
     select: (handler: Function) => {
       getEventHandlers(registry, "select").add(handler);
       return ctl;
     },
+    /**
+     * Handle collapsing selections.
+     */
     deselect: (handler: Function) => {
       getEventHandlers(registry, "deselect").add(handler);
       return ctl;

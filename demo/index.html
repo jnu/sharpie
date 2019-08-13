@@ -241,6 +241,7 @@ fit into the slippers at once.`;
         Sharpie.renderHTML(document.getElementById("sample"), txt, annotations);
       })
       .deselect(e => console.log("Deselected", e))
+      .click((id, e) => console.log("Clicked", id, e))
       .hoverIn((id, e) => {
         let modal = document.getElementById("modal");
         if (!modal) {
