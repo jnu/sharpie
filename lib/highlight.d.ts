@@ -8,3 +8,4 @@ export declare function watch(element: HTMLElement): {
 };
 export declare function unwatch(element: HTMLElement, eventType?: SharpieEvent, handler?: Function): boolean;
 export declare function clearSelection(): void;
+export declare function snapUserSelection(container: HTMLElement, sharpieId: number): void;

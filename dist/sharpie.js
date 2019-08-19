@@ -464,6 +464,43 @@ function clearSelection() {
 
 exports.clearSelection = clearSelection;
 
+function findFirstLeaf(el) {
+  var it = el;
+
+  while (it.firstChild) {
+    it = it.firstChild;
+  }
+
+  return it;
+}
+
+function findLastLeaf(el) {
+  var it = el;
+
+  while (it.lastChild) {
+    it = it.lastChild;
+  }
+
+  return it;
+}
+
+function snapUserSelection(container, sharpieId) {
+  var selector = "[data-sharpie-id='".concat(sharpieId, "']");
+  var els = container.querySelectorAll(selector);
+  var firstEl = els[0];
+  var lastEl = els[els.length - 1];
+  var firstNode = findFirstLeaf(firstEl);
+  var lastNode = findLastLeaf(lastEl);
+  var newRange = document.createRange();
+  newRange.setStart(firstNode, 0);
+  newRange.setEnd(lastNode, lastNode.textContent.length);
+  var userSelect = window.getSelection();
+  userSelect.removeAllRanges();
+  userSelect.addRange(newRange);
+}
+
+exports.snapUserSelection = snapUserSelection;
+
 /***/ }),
 
 /***/ "./src/html.ts":
@@ -978,6 +1015,7 @@ Object.defineProperty(exports, "__esModule", {
 var highlight_1 = __webpack_require__(/*! ./highlight */ "./src/highlight.ts");
 
 exports.clearSelection = highlight_1.clearSelection;
+exports.snapUserSelection = highlight_1.snapUserSelection;
 exports.watch = highlight_1.watch;
 exports.unwatch = highlight_1.unwatch;
 
