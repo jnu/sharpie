@@ -360,3 +360,45 @@ export function clearSelection() {
     }
   }
 }
+
+/**
+ * Get the left node edge of the DOM subtree.
+ */
+function findFirstLeaf(el: Element) {
+  let it = el as ChildNode;
+  while (it.firstChild) {
+    it = it.firstChild;
+  }
+  return it;
+}
+
+/**
+ * Get the right node edge of the DOM subtree.
+ */
+function findLastLeaf(el: Element) {
+  let it = el as ChildNode;
+  while (it.lastChild) {
+    it = it.lastChild;
+  }
+  return it;
+}
+
+/**
+ * Set the user selection to match the annotation with the given ID.
+ */
+export function snapUserSelection(container: HTMLElement, sharpieId: number) {
+  const selector = `[data-sharpie-id='${sharpieId}']`;
+  const els = container.querySelectorAll(selector);
+  const firstEl = els[0];
+  const lastEl = els[els.length - 1];
+  const firstNode = findFirstLeaf(firstEl);
+  const lastNode = findLastLeaf(lastEl);
+
+  const newRange = document.createRange();
+  newRange.setStart(firstNode, 0);
+  newRange.setEnd(lastNode, lastNode.textContent.length);
+
+  const userSelect = window.getSelection();
+  userSelect.removeAllRanges();
+  userSelect.addRange(newRange);
+}
