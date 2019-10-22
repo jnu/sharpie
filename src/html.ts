@@ -590,9 +590,15 @@ export function renderToString(text: string, annotations: Annotation[], opts?: R
       openOrderStack.unshift(opened);
     }
 
-    // Clean up closing redactions
-    while (openRedactions.length && openRedactions[0].redaction.end === pointer) {
-      openRedactions.shift();
+    // Ensure there are no open redactions that have already closed.
+    for (let i = openRedactions.length - 1; i >= 0; i--) {
+      const meta = openRedactions[i];
+      if (!meta) {
+        break;
+      }
+      if (meta.redaction.end <= pointer) {
+        openRedactions.splice(i, 1);
+      }
     }
 
     // Process open redaction annotations.
