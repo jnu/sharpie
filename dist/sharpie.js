@@ -957,17 +957,25 @@ function renderToString(text, annotations, opts) {
       openOrderStack.unshift(opened);
     }
 
-    while (openRedactions.length && openRedactions[0].redaction.end === pointer) {
-      openRedactions.shift();
+    for (var _i6 = openRedactions.length - 1; _i6 >= 0; _i6--) {
+      var meta = openRedactions[_i6];
+
+      if (!meta) {
+        break;
+      }
+
+      if (meta.redaction.end <= pointer) {
+        openRedactions.splice(_i6, 1);
+      }
     }
 
-    for (var _i6 = 0; _i6 < openRedactions.length; _i6++) {
-      var _atn2 = openRedactions[_i6];
+    for (var _i7 = 0; _i7 < openRedactions.length; _i7++) {
+      var _atn2 = openRedactions[_i7];
       var cursor = _atn2.cursor;
       var pct = (1 + pointer - _atn2.redaction.start) / (_atn2.redaction.end - _atn2.redaction.start);
       var rawPos = pct * _atn2.extent;
       _atn2.cursor = Math.floor(rawPos);
-      var needsWrite = _i6 === 0 && _atn2.cursor > cursor;
+      var needsWrite = _i7 === 0 && _atn2.cursor > cursor;
 
       while (needsWrite && cursor < _atn2.cursor) {
         output += _atn2.output[cursor++];
